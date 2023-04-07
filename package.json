@@ -1,0 +1,56 @@
+{
+  "name": "watchdog",
+  "version": "2.2.0",
+  "main": "dist-electron/main/index.js",
+  "description": "Electron Vite React boilerplate.",
+  "author": "草鞋没号 <308487730@qq.com>",
+  "license": "MIT",
+  "private": true,
+  "debug": {
+    "env": {
+      "VITE_DEV_SERVER_URL": "http://127.0.0.1:7777/"
+    }
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build && electron-builder",
+    "preview": "vite preview",
+    "pree2e": "vite build --mode=test",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@fortawesome/fontawesome-free": "^6.4.0",
+    "@fortawesome/fontawesome-svg-core": "^6.4.0",
+    "@fortawesome/free-solid-svg-icons": "^6.4.0",
+    "@fortawesome/react-fontawesome": "^0.2.0",
+    "@reduxjs/toolkit": "^1.9.3",
+    "electron-devtools-installer": "^3.2.0",
+    "electron-is-dev": "^2.0.0",
+    "electron-updater": "^5.3.0",
+    "react-redux": "^8.0.5",
+    "react-router-dom": "^6.10.0",
+    "redux": "^4.2.1",
+    "vite-tsconfig-paths": "^4.0.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.32.0",
+    "@types/react": "^18.0.28",
+    "@types/react-dom": "^18.0.11",
+    "@vitejs/plugin-react": "^3.1.0",
+    "autoprefixer": "^10.4.14",
+    "electron": "^23.2.0",
+    "electron-builder": "^23.6.0",
+    "postcss": "^8.4.21",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "sass": "^1.60.0",
+    "tailwindcss": "^3.3.1",
+    "typescript": "^5.0.2",
+    "vite": "^4.1.4",
+    "vite-plugin-electron": "^0.11.1",
+    "vite-plugin-electron-renderer": "^0.13.14"
+  },
+  "engines": {
+    "node": "^14.18.0 || >=16.0.0"
+  }
+}
