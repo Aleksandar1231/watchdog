@@ -15,7 +15,10 @@ import installExtension, {
   REDUX_DEVTOOLS,
 } from "electron-devtools-installer";
 import { Store } from "./store";
-import { writeFile } from "fs";
+import fs, { writeFile, readFileSync } from "fs";
+import ffmpeg from "fluent-ffmpeg";
+import { parse as csvParse } from "csv-parse";
+import { BufferTime, Recording, VideoQuality } from "../types";
 
 // The built directory structure
 //
@@ -177,38 +180,261 @@ ipcMain.handle("get-stream", async (_, sourceId) => {
   const stream = await (navigator.mediaDevices as any).getUserMedia(
     constraints
   );
-  console.log(stream);
   return stream;
 });
 
 ipcMain.handle("get-recordings", async (_) => {
   const recordings = store.get("recordings");
+  const filteredRecordings = recordings.filter((recording) =>
+    fs.existsSync(recording.filePath)
+  );
+  store.set("recordings", filteredRecordings);
+  return filteredRecordings;
+});
+
+ipcMain.handle("get-config", async (_) => {
+  const recordings = store.get("config");
   return recordings;
 });
 
-ipcMain.handle("save-video", async (_, fileName, arrayBuffer, dialogLabel) => {
-  const { filePath } = await dialog.showSaveDialog({
-    buttonLabel: dialogLabel,
-    defaultPath: `${app.getPath("userData")}/${fileName}`,
-  });
+ipcMain.handle(
+  "save-config",
+  async (
+    _,
+    logFilePath?: string,
+    videoQuality?: VideoQuality,
+    autoDelete?: boolean,
+    preBufferSeconds?: BufferTime,
+    postBufferSeconds?: BufferTime
+  ) => {
+    store.set("config", {
+      logFilePath: logFilePath,
+      videoQuality: videoQuality,
+      autoDelete: autoDelete,
+      preBufferSeconds: preBufferSeconds,
+      postBufferSeconds: postBufferSeconds,
+    });
+    console.log(store.get("config"));
+  }
+);
 
-  console.log(arrayBuffer);
-  const buffer = Buffer.from(arrayBuffer);
-  writeFile(filePath, buffer, async () => {
-    const thumbnail = await nativeImage
-      .createThumbnailFromPath(filePath, {
-        height: 64,
-        width: 64,
-      })
-      .then((t) => t.toDataURL())
-      .catch((err) => null);
-    store.append("recordings", {
-      filePath: filePath,
-      isHighlight: false,
-      date: Date.now(),
-      thumbnail: thumbnail ? thumbnail : {},
+ipcMain.handle("open-directory", async (_) => {
+  const result = await dialog.showOpenDialog({
+    properties: ["openFile"],
+  });
+  if (!result.canceled) {
+    return result.filePaths[0];
+  } else return "";
+});
+
+ipcMain.handle("default-log-location", async (_) => {
+  return `${app.getPath(
+    "home"
+  )}/Library/Logs/Guerrilla Trading Platform/events_log.csv`;
+});
+
+ipcMain.handle(
+  "save-video",
+  async (_, fileName, arrayBuffer, dialogLabel, startTime, duration, date) => {
+    const { filePath } = await dialog.showSaveDialog({
+      buttonLabel: dialogLabel,
+      defaultPath: `${app.getPath("userData")}/${fileName}`,
     });
 
-    console.log("Video saved!");
+    const buffer = Buffer.from(arrayBuffer);
+    writeFile(filePath, buffer, async () => {
+      const thumbnail = await nativeImage
+        .createThumbnailFromPath(filePath, {
+          height: 64,
+          width: 64,
+        })
+        .then((t) => t.toDataURL())
+        .catch((err) => console.log(err));
+      store.append("recordings", {
+        filePath: filePath,
+        isHighlight: false,
+        startTime: startTime,
+        duration: duration,
+        date: date,
+        thumbnail: thumbnail ? thumbnail : {},
+      });
+      console.log(filePath);
+      splitVideo(filePath);
+    });
+  }
+);
+
+function convertMilliToSeconds(milli: number) {
+  const seconds = Math.floor(milli / 1000);
+  return seconds;
+}
+
+function getTimeSegments(
+  eventTimestamps: number[],
+  startTime: number,
+  endTime: number
+) {
+  const preBuffer = store.get("config")["preBufferSeconds"];
+  const postBuffer = store.get("config")["postBufferSeconds"];
+  const preBufferMilliseconds = convertBufferTimeToMilliseconds(preBuffer);
+  const postBufferMilliseconds = convertBufferTimeToMilliseconds(postBuffer);
+  const segments = eventTimestamps.map((timestamp) => {
+    const startSegmentMilliseconds = Math.max(
+      timestamp - startTime - preBufferMilliseconds,
+      0
+    );
+    const endSegmentMilliseconds = Math.min(
+      timestamp - startTime + postBufferMilliseconds,
+      endTime
+    );
+    return {
+      start: convertMilliToSeconds(startSegmentMilliseconds),
+      end: convertMilliToSeconds(endSegmentMilliseconds),
+    };
   });
-});
+  return segments;
+}
+
+function convertBufferTimeToMilliseconds(bufferTime: BufferTime) {
+  switch (bufferTime) {
+    case "2 seconds":
+      return 2000;
+    case "5 seconds":
+      return 5000;
+    case "10 seconds":
+      return 10000;
+  }
+}
+
+async function splitVideo(filePath: string) {
+  if (fs.existsSync(filePath)) {
+    const recording = store
+      .get("recordings")
+      .find((recording) => recording.filePath === filePath);
+
+    const eventTimestamps = await filterEventsLog(recording);
+    const endTime = recording.startTime + recording.duration;
+    const segments = getTimeSegments(
+      eventTimestamps,
+      recording.startTime,
+      endTime
+    );
+    if (segments.length === 0) return;
+
+    const outputPath = `${app.getPath("userData")}/recording-${
+      recording.date
+    }-highlight`;
+
+    const segmentPaths: string[] = [];
+
+    try {
+      // Split the video into segments
+      for (let i = 0; i < segments.length; i++) {
+        const { start, end } = segments[i];
+        const segmentPath = `${outputPath}-part${i + 1}.mp4`;
+        segmentPaths.push(segmentPath);
+
+        await new Promise<void>((resolve, reject) => {
+          ffmpeg(filePath)
+            .setStartTime(start)
+            .setDuration(end - start)
+            .output(segmentPath)
+            .on("error", (err) => {
+              reject(err);
+            })
+            .on("end", () => {
+              resolve();
+            })
+            .run();
+        });
+      }
+
+      // Merge the segments into one file
+      const inputPaths = segmentPaths;
+      const command = ffmpeg();
+      inputPaths.forEach((inputPath) => {
+        command.input(inputPath);
+      });
+      command
+        .mergeToFile(`${outputPath}.mp4`, app.getPath("userData"))
+        .on("end", async () => {
+          // Delete the temporary segment files
+          for (const segmentPath of segmentPaths) {
+            await fs.promises.unlink(segmentPath);
+          }
+          const thumbnail = await nativeImage
+            .createThumbnailFromPath(`${outputPath}.mp4`, {
+              height: 64,
+              width: 64,
+            })
+            .then((t) => t.toDataURL())
+            .catch((err) => console.log(err));
+
+          store.append("recordings", {
+            filePath: `${outputPath}.mp4`,
+            isHighlight: true,
+            startTime: recording.startTime,
+            duration: recording.duration,
+            date: recording.date,
+            thumbnail: thumbnail ? thumbnail : {},
+          });
+        })
+        .on("error", async (err) => {
+          throw err;
+        });
+    } catch (err) {
+      // Delete the temporary segment files if an error occurs
+      for (const segmentPath of segmentPaths) {
+        try {
+          await fs.promises.unlink(segmentPath);
+        } catch (e) {
+          // Ignore errors when deleting files
+        }
+      }
+      console.log(err);
+    }
+  }
+}
+
+async function filterEventsLog(recording: Recording) {
+  const eventsFile = store.get("config")["logFilePath"];
+  const startTime = recording.startTime;
+  const endTime = recording.startTime + recording.duration;
+  const records = await parseEventLog(eventsFile);
+  const timestamps = await getFilteredTimestamps(records, startTime, endTime);
+  return timestamps;
+}
+
+async function parseEventLog(csvFilePath: string) {
+  const records = [];
+  console.log(csvFilePath);
+  const parser = csvParse({
+    delimiter: ",",
+  });
+  parser.on("readable", () => {
+    let record;
+    while ((record = parser.read())) {
+      records.push(record);
+    }
+  });
+
+  const stream = fs.createReadStream(csvFilePath);
+  stream.pipe(parser);
+  return new Promise((resolve, reject) => {
+    parser.on("error", (err: any) => console.log(err));
+    parser.on("end", () => resolve(records));
+  });
+}
+
+function getFilteredTimestamps(
+  records: any,
+  startTime: number,
+  endTime: number
+) {
+  const dates = records.map((record) => record[0]);
+  const timestamps = dates.map((date) => Date.parse(date));
+  const filteredTimestamp = timestamps.filter(
+    (timestamp) => timestamp >= startTime && timestamp <= endTime
+  );
+  return filteredTimestamp;
+}

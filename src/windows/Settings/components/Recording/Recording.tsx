@@ -5,11 +5,16 @@ import { updateVideoQuality } from "../../../../redux/config";
 
 export function Recording() {
   const dispatch = useDispatch();
+  const config = useSelector((state: RootState) => state.config);
   const videoQuality = useSelector(
     (state: RootState) => state.config.videoQuality
   );
-  const handleChange = (newOption: any) => {
+  const handleChange = async (newOption: any) => {
     dispatch(updateVideoQuality(newOption));
+    await window.main.saveConfig({
+      ...config,
+      videoQuality: newOption,
+    });
   };
 
   return (

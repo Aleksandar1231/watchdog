@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import ScreenRecordingCard from "./components/ScreenRecordingCard";
 import TopMenu from "./components/TopMenu";
-import { VideoPlayer } from "./components/VideoPlayer/VideoPlayer";
+import VideoRecorder from "./components/VideoRecorder";
 
 export function Record() {
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
@@ -17,7 +17,7 @@ export function Record() {
   return (
     <div className="container m-8 space-y-10">
       {selectedSourceId ? (
-        <VideoPlayer source={selectedSourceId} />
+        <VideoRecorder source={selectedSourceId} />
       ) : (
         <>
           <TopMenu />

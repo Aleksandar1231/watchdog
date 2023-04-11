@@ -9,7 +9,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 export function VideoCard(props: Recording) {
   const { filePath, isHighlight, date, thumbnail } = props;
 
-  function getDateString(date: string) {
+  function getDateString(date: number) {
     return new Date(date).toString();
   }
 
@@ -39,9 +39,9 @@ export function VideoCard(props: Recording) {
         </div>
         <div className="px-6 py-4 flex items-center justify-center">
           {isHighlight ? (
-            <p className="text-gray-700 text-base">Highlights</p>
+            <p className="text-black text-base font-bold">Highlights</p>
           ) : (
-            <p className="text-gray-700 text-base">Full Session</p>
+            <p className="text-black text-base font-bold">Full Session</p>
           )}
         </div>
       </div>

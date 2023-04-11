@@ -8,8 +8,14 @@ import {
   faCog,
 } from "@fortawesome/free-solid-svg-icons";
 import electronIsDev from "electron-is-dev";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
 
 export function TopMenu() {
+  const isRecording = useSelector(
+    (state: RootState) => state.recording.isRecording
+  );
+
   return (
     <div className="container flex flex-row space-x-4 max-w-full">
       <div className="container flex flex-row">
@@ -22,7 +28,10 @@ export function TopMenu() {
             <div className="px-1">Start Session</div>
           </div>
         </button>
-        <button className="border border-red-500 bg-red-100 hover:bg-red-200 text-red-500 font-semibold py-2 px-4">
+        <button
+          className="border border-red-500 bg-red-100 hover:bg-red-200 text-red-500 font-semibold py-2 px-4"
+          disabled={!isRecording}
+        >
           <div className="flex flex-row items-center">
             <FontAwesomeIcon icon={faSquare} />
             <div className="px-1">Stop Session</div>

@@ -1,6 +1,8 @@
 export type Recording = {
   filePath: string;
   isHighlight: boolean;
-  date: string;
+  date: number;
   thumbnail: string;
+  startTime?: number;
+  duration?: number;
 };

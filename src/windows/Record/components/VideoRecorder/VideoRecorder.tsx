@@ -1,4 +1,7 @@
+import { toggleRecording } from "@/redux/recording";
+import { RootState } from "@/store";
 import { useEffect, useRef, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 
 type VideoPlayerProps = {
   source: string;
@@ -6,11 +9,16 @@ type VideoPlayerProps = {
 
 let mediaRecorder: MediaRecorder;
 let recordedChunks: any[] = [];
+let startTime: number;
+let duration: number;
 
-export function VideoPlayer(props: VideoPlayerProps) {
+export function VideoRecorder(props: VideoPlayerProps) {
   const { source } = props;
+  const dispatch = useDispatch();
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
+  const isRecording = useSelector(
+    (state: RootState) => state.recording.isRecording
+  );
 
   useEffect(() => {
     document.title = "Watchdog > Record";
@@ -36,7 +44,6 @@ export function VideoPlayer(props: VideoPlayerProps) {
     }
 
     getStream();
-    console.log(stream);
   }, []);
 
   function handleDataAvailable(e: any) {
@@ -44,16 +51,24 @@ export function VideoPlayer(props: VideoPlayerProps) {
     console.log(recordedChunks);
   }
 
-  async function handleDataEnd(e: any) {
+  function handleDataStart() {
+    startTime = Date.now();
+  }
+
+  async function handleDataEnd() {
+    duration = Date.now() - startTime;
     const blob = new Blob(recordedChunks, {
       type: "video/webm; codecs=vp9",
     });
     const arrayBuffer = await blob.arrayBuffer();
-    console.log(arrayBuffer);
-    window.main.saveVideo(
-      `recording-${Date.now()}.webm`,
+    const date = Date.now();
+    await window.main.saveVideo(
+      `recording-${date}.webm`,
       arrayBuffer,
-      "Save video"
+      "Save video",
+      startTime,
+      duration,
+      date
     );
     recordedChunks = [];
   }
@@ -62,11 +77,12 @@ export function VideoPlayer(props: VideoPlayerProps) {
 
   const handleStartRecording = () => {
     if (!stream) return;
-    setIsRecording(true);
+    dispatch(toggleRecording(true));
 
     const options = { mimeType: "video/webm; codecs=vp9" };
 
     mediaRecorder = new MediaRecorder(stream, options);
+    mediaRecorder.onstart = handleDataStart;
     mediaRecorder.ondataavailable = handleDataAvailable;
     mediaRecorder.onstop = handleDataEnd;
     recordedChunks = [];
@@ -74,7 +90,7 @@ export function VideoPlayer(props: VideoPlayerProps) {
   };
 
   const handleStopRecording = async () => {
-    setIsRecording(false);
+    dispatch(toggleRecording(false));
     //pauseVideo();
     mediaRecorder.stop();
   };

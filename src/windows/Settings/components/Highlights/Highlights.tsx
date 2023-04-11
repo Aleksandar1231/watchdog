@@ -8,6 +8,7 @@ import {
 } from "../../../../redux/config";
 
 export function Highlights() {
+  const config = useSelector((state: RootState) => state.config);
   const autoDelete = useSelector((state: RootState) => state.config.autoDelete);
   const preBufferTime = useSelector(
     (state: RootState) => state.config.preBufferSeconds
@@ -17,16 +18,28 @@ export function Highlights() {
   );
   const dispatch = useDispatch();
 
-  const handlePreEventBufferChange = (time: any) => {
+  const handlePreEventBufferChange = async (time: any) => {
     dispatch(updatePreBufferTime(time));
+    await window.main.saveConfig({
+      ...config,
+      preBufferSeconds: time,
+    });
   };
 
-  const handlePostEventBufferChange = (time: any) => {
+  const handlePostEventBufferChange = async (time: any) => {
     dispatch(updatePostBufferTime(time));
+    await window.main.saveConfig({
+      ...config,
+      postBufferTime: time,
+    });
   };
 
-  const handleCheckBoxChange = () => {
+  const handleCheckBoxChange = async () => {
     dispatch(updateAutoDelete(!autoDelete));
+    await window.main.saveConfig({
+      ...config,
+      autoDelete: !autoDelete,
+    });
   };
 
   return (

@@ -2,13 +2,6 @@ const electron = require("electron");
 const path = require("path");
 const fs = require("fs");
 
-export type Recording = {
-  filePath: string;
-  isHighlight: boolean;
-  date: Date;
-  thumbnail: string;
-};
-
 export class Store {
   private path: string;
   private data: any;
@@ -30,12 +23,12 @@ export class Store {
 
   // ...and this will set it
   set(key, val) {
-    this.data[key] = [val];
+    this.data[key] = val;
     fs.writeFileSync(this.path, JSON.stringify(this.data));
   }
 
   append(key, val) {
-    this.data[key] ? this.data[key].push(val) : this.set(key, val);
+    this.data[key] ? this.data[key].push(val) : this.set(key, [val]);
     fs.writeFileSync(this.path, JSON.stringify(this.data));
   }
 }

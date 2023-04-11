@@ -1,8 +1,7 @@
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-
-export type BufferTime = "2" | "5" | "10";
+import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 export interface ConfigState {
+  logFilePath: string;
   videoQuality: "Low" | "High";
   preBufferSeconds: string;
   postBufferSeconds: string;
@@ -10,6 +9,7 @@ export interface ConfigState {
 }
 
 const initialState: ConfigState = {
+  logFilePath: "",
   videoQuality: "Low",
   preBufferSeconds: "2 seconds",
   postBufferSeconds: "5 seconds",
@@ -20,6 +20,9 @@ const configSlice = createSlice({
   name: "config",
   initialState,
   reducers: {
+    updateLogFilePath(state, action: PayloadAction<string>) {
+      state.logFilePath = action.payload;
+    },
     updateVideoQuality(state, action: PayloadAction<"Low" | "High">) {
       state.videoQuality = action.payload;
     },
@@ -36,6 +39,7 @@ const configSlice = createSlice({
 });
 
 export const {
+  updateLogFilePath,
   updateVideoQuality,
   updatePreBufferTime,
   updatePostBufferTime,

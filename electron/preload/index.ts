@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
+import { BufferTime, Config, VideoQuality } from "../types";
 
 const main = {
   openNewWindow: async (route: string): Promise<void> => {
@@ -13,12 +14,41 @@ const main = {
   getRecordings: async (): Promise<string> => {
     return await ipcRenderer.invoke("get-recordings");
   },
+  getConfig: async (): Promise<string> => {
+    return await ipcRenderer.invoke("get-config");
+  },
+  openDirectory: async (): Promise<string> => {
+    return await ipcRenderer.invoke("open-directory");
+  },
   saveVideo: async (
     fileName: string,
     blob: any,
-    dialogLabel: string
+    dialogLabel: string,
+    startTime: number,
+    duration: number,
+    date: number
+  ): Promise<string> => {
+    return await ipcRenderer.invoke(
+      "save-video",
+      fileName,
+      blob,
+      dialogLabel,
+      startTime,
+      duration,
+      date
+    );
+  },
+  saveConfig: async (
+    config: Config
   ): Promise<void> => {
-    return await ipcRenderer.invoke("save-video", fileName, blob, dialogLabel);
+    return await ipcRenderer.invoke(
+      "save-config",
+      config.logFilePath,
+      config.videoQuality,
+      config.autoDelete,
+      config.preBufferSeconds,
+      config.postBufferSeconds
+    );
   },
 };
 
