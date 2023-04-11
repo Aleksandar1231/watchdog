@@ -292,7 +292,44 @@ function getTimeSegments(
       end: convertMilliToSeconds(endSegmentMilliseconds),
     };
   });
-  return segments;
+  if (segments.length === 0) return segments;
+  const mergedSegments = mergeSegments(segments);
+  console.log(mergedSegments)
+  return mergedSegments;
+}
+
+function mergeSegments(segments: { start: number; end: number }[]) {
+  const uniqueSegments = segments.reduce((unique, o) => {
+    if (!unique.some((obj) => obj.start === o.start && obj.end === o.end)) {
+      unique.push(o);
+    }
+    return unique;
+  }, []);
+
+  // Sort segments by start value
+  uniqueSegments.sort((a, b) => a.start - b.start);
+
+  // Initialize mergedSegments with the first segment
+  const mergedSegments = [uniqueSegments[0]];
+
+  // Loop through remaining segments and merge overlapping segments
+  for (let i = 1; i < uniqueSegments.length; i++) {
+    const currentSegment = uniqueSegments[i];
+    const lastMergedSegment = mergedSegments[mergedSegments.length - 1];
+
+    if (currentSegment.start <= lastMergedSegment.end) {
+      // Merge currentSegment with lastMergedSegment
+      lastMergedSegment.end = Math.max(
+        currentSegment.end,
+        lastMergedSegment.end
+      );
+    } else {
+      // Add currentSegment to mergedSegments
+      mergedSegments.push(currentSegment);
+    }
+  }
+
+  return mergedSegments;
 }
 
 function convertBufferTimeToMilliseconds(bufferTime: BufferTime) {

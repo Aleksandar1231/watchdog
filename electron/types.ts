@@ -6,6 +6,11 @@ export type Recording = {
   date: number;
   thumbnail: string;
 };
+export type Highlight = {
+  filePath: string;
+  date: number;
+  thumbnail: string;
+}
 export type Segment = {
   start: number;
   end: number;

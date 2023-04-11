@@ -6,3 +6,9 @@ export type Recording = {
   startTime?: number;
   duration?: number;
 };
+
+export type Highlight = {
+  filePath: string;
+  date: number;
+  thumbnail: string;
+};
