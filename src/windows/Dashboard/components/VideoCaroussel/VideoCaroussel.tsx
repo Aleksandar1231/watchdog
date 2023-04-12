@@ -61,7 +61,7 @@ export const VideoCarousel: React.FC<VideoCarouselProps> = ({ recording }) => {
           <div
             className="flex flex-col items-center justify-center border border-2 h-800 border-gray bg-center bg-contain bg-no-repeat"
             style={{
-              backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url(${thumbnail})`,
+              backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url(${highlight.thumbnail})`,
               height: "150px",
             }}
           >

@@ -385,6 +385,7 @@ async function splitVideo(filePath: string) {
 
     const segmentPaths: string[] = [];
 
+    const inputCommand = ffmpeg(filePath);
     try {
       // Split the video into segments
       for (let i = 0; i < segments.length; i++) {
@@ -393,7 +394,7 @@ async function splitVideo(filePath: string) {
         segmentPaths.push(segmentPath);
 
         await new Promise<void>((resolve, reject) => {
-          ffmpeg(filePath)
+          inputCommand
             .setStartTime(start)
             .setDuration(end - start)
             .output(segmentPath)
@@ -438,7 +439,7 @@ async function splitVideo(filePath: string) {
             startTime: recording.startTime,
             duration: recording.duration,
             date: recording.date,
-            thumbnail: recording.thumbnail
+            thumbnail: recording.thumbnail,
           });
         })
         .on("error", async (err) => {
