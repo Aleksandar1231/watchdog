@@ -2,6 +2,7 @@ import { toggleRecording } from "@/redux/recording";
 import { RootState } from "@/store";
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import classNames from "classnames";
 
 type VideoPlayerProps = {
   source: string;
@@ -48,7 +49,6 @@ export function VideoRecorder(props: VideoPlayerProps) {
 
   function handleDataAvailable(e: any) {
     recordedChunks.push(e.data);
-    console.log(recordedChunks);
   }
 
   function handleDataStart() {
@@ -58,12 +58,12 @@ export function VideoRecorder(props: VideoPlayerProps) {
   async function handleDataEnd() {
     duration = Date.now() - startTime;
     const blob = new Blob(recordedChunks, {
-      type: "video/webm; codecs=vp9",
+      type: "video/mp4; codecs=vp9",
     });
     const arrayBuffer = await blob.arrayBuffer();
     const date = Date.now();
     await window.main.saveVideo(
-      `recording-${date}.webm`,
+      `recording-${date}.mp4`,
       arrayBuffer,
       "Save video",
       startTime,
@@ -110,6 +110,16 @@ export function VideoRecorder(props: VideoPlayerProps) {
 
   return (
     <div>
+      {isRecording && (
+        <div className="flex items-center justify-center my-2">
+          <div className="text-lg px-3">Recording</div>
+          <div
+            className={classNames("", {
+              "w-4 h-4 bg-red-500 rounded-full animate-pulse": isRecording,
+            })}
+          />
+        </div>
+      )}
       <video ref={videoRef} className="w-full h-auto" />
       <div className="m-4 flex justify-center items-center">
         <button
