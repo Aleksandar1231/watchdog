@@ -1,16 +1,16 @@
 export type Recording = {
   filePath: string;
-  isHighlight: boolean;
-  startTime: number;
-  duration: number;
   date: number;
   thumbnail: string;
+  startTime: number;
+  duration: number;
+  highlight?: Highlight;
 };
 export type Highlight = {
   filePath: string;
   date: number;
   thumbnail: string;
-}
+};
 export type Segment = {
   start: number;
   end: number;

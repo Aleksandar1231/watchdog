@@ -1,6 +1,6 @@
-import { Recording } from "@/windows/Record";
+import { Recording } from "@/types";
 import { useEffect, useState } from "react";
-import VideoCard from "../VideoCard";
+import VideoCarousel from "../VideoCaroussel";
 
 export function Body() {
   const [recordings, setRecordings] = useState<Recording[] | null>(null);
@@ -22,13 +22,7 @@ export function Body() {
       </div>
       <div className="container mx-auto max-w-full flex flex-row flex-wrap">
         {recordings?.map((recording) => (
-          <VideoCard
-            key={recording.filePath}
-            filePath={recording.filePath}
-            isHighlight={recording.isHighlight}
-            date={recording.date}
-            thumbnail={recording.thumbnail}
-          />
+          <VideoCarousel key={recording.filePath} recording={recording} />
         ))}
       </div>
     </div>

@@ -1,8 +1,8 @@
 export type Recording = {
   filePath: string;
-  isHighlight: boolean;
   date: number;
   thumbnail: string;
+  highlight?: Highlight;
   startTime?: number;
   duration?: number;
 };
@@ -12,3 +12,5 @@ export type Highlight = {
   date: number;
   thumbnail: string;
 };
+
+export type RecordingType = "Full Session" | "Highlight" | "Voice Over";

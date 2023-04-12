@@ -1,4 +1,4 @@
-import { NativeImage } from "electron";
+
 import React, { useEffect, useState } from "react";
 
 interface Source {

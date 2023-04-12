@@ -17,18 +17,13 @@ export class Store {
   }
 
   // This will just return the property on the `data` object
-  get(key) {
-    return this.data[key];
+  get(key?: string) {
+    return key ? this.data[key] : this.data;
   }
 
   // ...and this will set it
   set(key, val) {
     this.data[key] = val;
-    fs.writeFileSync(this.path, JSON.stringify(this.data));
-  }
-
-  append(key, val) {
-    this.data[key] ? this.data[key].push(val) : this.set(key, [val]);
     fs.writeFileSync(this.path, JSON.stringify(this.data));
   }
 }
