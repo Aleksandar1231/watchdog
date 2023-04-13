@@ -5,6 +5,7 @@ export type Recording = {
   startTime: number;
   duration: number;
   highlight?: Highlight;
+  highlightState?: HighlightState;
 };
 export type Highlight = {
   filePath: string;
@@ -15,6 +16,7 @@ export type Segment = {
   start: number;
   end: number;
 };
+export type HighlightState = "Processing" | "Completed"
 export type BufferTime = "2 seconds" | "5 seconds" | "10 seconds";
 export type VideoQuality = "Low" | "High";
 export type Config = {

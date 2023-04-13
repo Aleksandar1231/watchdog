@@ -21,7 +21,6 @@ export function Connection(props: { config: any }) {
   ) => {
     setLogFilePath(event.target.value);
     await window.main.saveConfig({
-      ...config,
       logFilePath: event.target.value,
     });
   };

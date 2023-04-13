@@ -18,7 +18,6 @@ export function Highlights(props: { config: any }) {
   const handlePreEventBufferChange = async (time: any) => {
     setPreBufferTime(time);
     await window.main.saveConfig({
-      ...config,
       preBufferSeconds: time,
     });
   };
@@ -27,7 +26,6 @@ export function Highlights(props: { config: any }) {
     console.log(time);
     setPostBufferTime(time);
     await window.main.saveConfig({
-      ...config,
       postBufferSeconds: time,
     });
   };
@@ -35,7 +33,6 @@ export function Highlights(props: { config: any }) {
   const handleCheckBoxChange = async () => {
     setAutoDelete(!autoDelete);
     await window.main.saveConfig({
-      ...config,
       autoDelete: !autoDelete,
     });
   };

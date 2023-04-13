@@ -18,7 +18,7 @@ import { Store } from "./store";
 import fs, { writeFile, readFileSync } from "fs";
 import ffmpeg from "fluent-ffmpeg";
 import { parse as csvParse } from "csv-parse";
-import { BufferTime, Recording, VideoQuality } from "../types";
+import { BufferTime, Config, Recording, VideoQuality } from "../types";
 
 // The built directory structure
 //
@@ -58,27 +58,77 @@ const preload = join(__dirname, "../preload/index.js");
 const url = process.env.VITE_DEV_SERVER_URL;
 const indexHtml = join(process.env.DIST, "index.html");
 
-// First instantiate the class
+// First instantiate the config files
 const configStore = new Store({
   configName: "config",
 });
-
-const config = configStore.get("config");
-if (!config) {
-  configStore.set("config", {
-    logFilePath: `${app.getPath(
-      "home"
-    )}/Library/Logs/Guerrilla Trading Platform/events_log.csv`,
-    videoQuality: "Low",
-    autoDelete: false,
-    preBufferSeconds: "2 seconds",
-    postBufferSeconds: "2 seconds",
-  });
-}
+getConfig();
 
 const recordingStore = new Store({
   configName: "recordings",
 });
+
+function getConfig() {
+  let config = configStore.get("config");
+  if (!config) {
+    configStore.set("config", {
+      logFilePath: `${app.getPath(
+        "home"
+      )}/Library/Logs/Guerrilla Trading Platform/events_log.csv`,
+      videoQuality: "Low",
+      autoDelete: false,
+      preBufferSeconds: "2 seconds",
+      postBufferSeconds: "2 seconds",
+    });
+    config = configStore.get("config");
+  }
+  return config;
+}
+
+function saveConfig(config: Config, event?: Electron.IpcMainInvokeEvent) {
+  configStore.set("config", config);
+  const newConfig = configStore.get("config");
+  event && event.sender.send("config-save-complete", newConfig);
+  return newConfig;
+}
+
+function getRecordings() {
+  const data = recordingStore.get();
+  const result: Recording[] = data
+    ? Object.values(data).map((v) => {
+        return {
+          filePath: v.filePath,
+          thumbnail: v.thumbnail,
+          date: v.date,
+          duration: v.duration,
+          startTime: v.startTime,
+          highlight: v.highlight,
+        };
+      })
+    : [];
+  const filteredRecordings = result?.filter((recording) =>
+    fs.existsSync(recording.filePath)
+  );
+  if (filteredRecordings?.length !== result.length) {
+    recordingStore.clear();
+    filteredRecordings.forEach((filteredRecording) => {
+      recordingStore.set(filteredRecording.filePath, filteredRecording);
+    });
+  }
+
+  return filteredRecordings;
+}
+
+function saveRecording(
+  filePath: string,
+  recording: Recording,
+  event: Electron.IpcMainInvokeEvent
+) {
+  recordingStore.set(filePath, recording);
+  const recordings = recordingStore.get();
+  win.webContents.send("recording-save", recordings);
+  return recordings;
+}
 
 async function createWindow() {
   win = new BrowserWindow({
@@ -200,58 +250,36 @@ ipcMain.handle("get-stream", async (_, sourceId) => {
   return stream;
 });
 
-function getRecordings(data?: any) {
-  if (!data) return [];
-  const result: Recording[] = Object.values(data).map((v) => {
-    return {
-      filePath: v.filePath,
-      thumbnail: v.thumbnail,
-      date: v.date,
-      duration: v.duration,
-      startTime: v.startTime,
-      highlight: v.highlight,
-    };
-  });
-  return result;
-}
-
 ipcMain.handle("get-recordings", async (_) => {
-  const recordings = getRecordings(recordingStore.get());
-
-  const filteredRecordings = recordings?.filter((recording) =>
-    fs.existsSync(recording.filePath)
-  );
-
-  filteredRecordings?.forEach((filteredRecording) => {
-    recordingStore.set(filteredRecording.filePath, filteredRecording);
-  });
-
-  return filteredRecordings;
+  return getRecordings();
 });
 
 ipcMain.handle("get-config", async (_) => {
-  const config = configStore.get("config");
-  return config;
+  return getConfig();
 });
 
 ipcMain.handle(
   "save-config",
   async (
-    _,
+    event,
     logFilePath?: string,
     videoQuality?: VideoQuality,
     autoDelete?: boolean,
     preBufferSeconds?: BufferTime,
     postBufferSeconds?: BufferTime
   ) => {
-    configStore.set("config", {
-      logFilePath: logFilePath,
-      videoQuality: videoQuality,
-      autoDelete: autoDelete,
-      preBufferSeconds: preBufferSeconds,
-      postBufferSeconds: postBufferSeconds,
-    });
-    console.log(configStore.get("config"));
+    const config = saveConfig(
+      {
+        ...getConfig(),
+        ...(logFilePath && { logFilePath }),
+        ...(videoQuality && { videoQuality }),
+        ...(autoDelete !== undefined && { autoDelete }),
+        ...(preBufferSeconds && { preBufferSeconds }),
+        ...(postBufferSeconds && { postBufferSeconds }),
+      },
+      event
+    );
+    console.log(config);
   }
 );
 
@@ -272,7 +300,15 @@ ipcMain.handle("default-log-location", async (_) => {
 
 ipcMain.handle(
   "save-video",
-  async (_, fileName, arrayBuffer, dialogLabel, startTime, duration, date) => {
+  async (
+    event,
+    fileName,
+    arrayBuffer,
+    dialogLabel,
+    startTime,
+    duration,
+    date
+  ) => {
     const { filePath } = await dialog.showSaveDialog({
       buttonLabel: dialogLabel,
       defaultPath: `${app.getPath("userData")}/${fileName}`,
@@ -287,15 +323,19 @@ ipcMain.handle(
         })
         .then((t) => t.toDataURL())
         .catch((err) => console.log(err));
-      recordingStore.set(filePath, {
-        filePath: filePath,
-        startTime: startTime,
-        duration: duration,
-        date: date,
-        thumbnail: thumbnail ? thumbnail : {},
-      });
+      saveRecording(
+        filePath,
+        {
+          filePath: filePath,
+          startTime: startTime,
+          duration: duration,
+          date: date,
+          thumbnail: thumbnail ? thumbnail : "",
+        },
+        event
+      );
       console.log(filePath);
-      splitVideo(filePath);
+      splitVideo(filePath, event);
     });
   }
 );
@@ -310,8 +350,8 @@ function getTimeSegments(
   startTime: number,
   endTime: number
 ) {
-  const preBuffer = configStore.get("config")["preBufferSeconds"];
-  const postBuffer = configStore.get("config")["postBufferSeconds"];
+  const preBuffer = getConfig()["preBufferSeconds"];
+  const postBuffer = getConfig()["postBufferSeconds"];
   const preBufferMilliseconds = convertBufferTimeToMilliseconds(preBuffer);
   const postBufferMilliseconds = convertBufferTimeToMilliseconds(postBuffer);
   const segments = eventTimestamps.map((timestamp) => {
@@ -379,10 +419,9 @@ function convertBufferTimeToMilliseconds(bufferTime: BufferTime) {
   }
 }
 
-async function splitVideo(filePath: string) {
+async function splitVideo(filePath: string, event: any) {
   if (fs.existsSync(filePath)) {
     const recording = recordingStore.get(filePath);
-
     const eventTimestamps = await filterEventsLog(recording);
     const endTime = recording.startTime + recording.duration;
     const segments = getTimeSegments(
@@ -395,6 +434,18 @@ async function splitVideo(filePath: string) {
     const outputPath = `${app.getPath("userData")}/recording-${
       recording.date
     }-highlight`;
+    saveRecording(
+      filePath,
+      {
+        filePath: filePath,
+        highlightState: "Processing",
+        startTime: recording.startTime,
+        duration: recording.duration,
+        date: recording.date,
+        thumbnail: recording.thumbnail,
+      },
+      event
+    );
 
     const segmentPaths: string[] = [];
 
@@ -442,18 +493,23 @@ async function splitVideo(filePath: string) {
             .then((t) => t.toDataURL())
             .catch((err) => console.log(err));
 
-          recordingStore.set(filePath, {
-            filePath: filePath,
-            highlight: {
-              filePath: `${outputPath}.mp4`,
-              thumbnail: thumbnail ? thumbnail : {},
+          saveRecording(
+            filePath,
+            {
+              filePath: filePath,
+              highlightState: "Completed",
+              highlight: {
+                filePath: `${outputPath}.mp4`,
+                thumbnail: thumbnail ? thumbnail : "",
+                date: recording.date,
+              },
+              startTime: recording.startTime,
+              duration: recording.duration,
               date: recording.date,
+              thumbnail: recording.thumbnail,
             },
-            startTime: recording.startTime,
-            duration: recording.duration,
-            date: recording.date,
-            thumbnail: recording.thumbnail,
-          });
+            event
+          );
         })
         .on("error", async (err) => {
           throw err;
@@ -473,7 +529,7 @@ async function splitVideo(filePath: string) {
 }
 
 async function filterEventsLog(recording: Recording) {
-  const eventsFile = configStore.get("config")["logFilePath"];
+  const eventsFile = getConfig()["logFilePath"];
   const startTime = recording.startTime;
   const endTime = recording.startTime + recording.duration;
   const records = await parseEventLog(eventsFile);
@@ -486,6 +542,7 @@ async function parseEventLog(csvFilePath: string) {
   console.log(csvFilePath);
   const parser = csvParse({
     delimiter: ",",
+    relax_column_count: true
   });
   parser.on("readable", () => {
     let record;

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import { BufferTime, Config, VideoQuality } from "../types";
+import { BufferTime, Config, Recording, VideoQuality } from "../types";
 
 const main = {
   openNewWindow: async (route: string): Promise<void> => {
@@ -47,6 +47,17 @@ const main = {
       config.preBufferSeconds,
       config.postBufferSeconds
     );
+  },
+  listenRecordingSave: (setRecordings: (value: Recording[]) => void): void => {
+    ipcRenderer.on("recording-save", (event, recordings) => {
+      const values = Object.values(recordings);
+      setRecordings(values as Recording[]);
+    });
+  },
+  listenConfigSave: (setConfig: (value: Config) => void): void => {
+    ipcRenderer.on("config-save-complete", (event, config) => {
+      setConfig(config);
+    });
   },
 };
 

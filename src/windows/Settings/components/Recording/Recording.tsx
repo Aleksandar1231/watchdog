@@ -14,7 +14,6 @@ export function Recording(props: { config: any }) {
   const handleChange = async (newOption: any) => {
     setVideoQuality(newOption);
     await window.main.saveConfig({
-      ...config,
       videoQuality: newOption,
     });
   };

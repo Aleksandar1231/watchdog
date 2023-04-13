@@ -26,6 +26,11 @@ export class Store {
     this.data[key] = val;
     fs.writeFileSync(this.path, JSON.stringify(this.data));
   }
+
+  clear() {
+    fs.writeFileSync(this.path, "");
+    this.data = parseDataFile(this.path);
+  }
 }
 
 function parseDataFile(filePath: string) {

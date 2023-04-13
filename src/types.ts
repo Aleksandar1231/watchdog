@@ -5,8 +5,18 @@ export type Recording = {
   highlight?: Highlight;
   startTime?: number;
   duration?: number;
+  highlightState?: HighlightState;
 };
-
+export type BufferTime = "2 seconds" | "5 seconds" | "10 seconds";
+export type VideoQuality = "Low" | "High";
+export type Config = {
+  logFilePath: string;
+  videoQuality: VideoQuality;
+  preBufferSeconds: BufferTime;
+  postBufferSeconds: BufferTime;
+  autoDelete: boolean;
+};
+export type HighlightState = "Processing" | "Completed";
 export type Highlight = {
   filePath: string;
   date: number;

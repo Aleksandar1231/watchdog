@@ -1,14 +1,22 @@
 import { Recording } from "@/types";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import VideoCarousel from "../VideoCaroussel";
 
 export function Body() {
   const [recordings, setRecordings] = useState<Recording[] | null>(null);
 
+  const handleRecordingSave = useCallback(
+    (recordings: Recording[]) => {
+      console.log(recordings);
+      setRecordings(recordings);
+    },
+    [setRecordings]
+  );
+
   useEffect(() => {
     async function getRecordings() {
-      const recordings = (await window.main.getRecordings()) as Recording[];
-      console.log(recordings);
+      await window.main.listenRecordingSave(handleRecordingSave);
+      const recordings = await window.main.getRecordings();
       setRecordings(recordings);
     }
 

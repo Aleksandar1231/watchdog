@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useState } from "react";
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { Transition } from "@headlessui/react";
@@ -15,10 +15,15 @@ interface VideoCarouselProps {
 }
 
 export const VideoCarousel: React.FC<VideoCarouselProps> = ({ recording }) => {
-  const { filePath, date, thumbnail, highlight } = recording;
-  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const { filePath, date, thumbnail, highlight, highlightState } = recording;
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(
+    highlightState ? 1 : 0
+  );
 
-  console.log(currentVideoIndex);
+  useEffect(() => {
+    setCurrentVideoIndex(highlightState ? 1 : 0);
+  }, [highlightState]);
+
   function getDateString(date: number) {
     return new Date(date).toString();
   }
@@ -37,7 +42,7 @@ export const VideoCarousel: React.FC<VideoCarouselProps> = ({ recording }) => {
               height: "150px",
             }}
           >
-            <div className="flex items-center justify-center">
+            <div className="flex items-center justify-center mt-4">
               <button
                 onClick={() =>
                   window.main.openNewWindow(
@@ -53,11 +58,11 @@ export const VideoCarousel: React.FC<VideoCarouselProps> = ({ recording }) => {
               </button>
             </div>
             <div className="px-6 py-4 flex items-center justify-center">
-              <p className="text-black text-base font-bold">Full Session</p>
+              <p className="text-white text-base font-bold">Full Session</p>
             </div>
           </div>
         )}
-        {highlight?.filePath && currentVideoIndex === 1 && (
+        {highlight && currentVideoIndex === 1 && (
           <div
             className="flex flex-col items-center justify-center border border-2 h-800 border-gray bg-center bg-contain bg-no-repeat"
             style={{
@@ -65,7 +70,7 @@ export const VideoCarousel: React.FC<VideoCarouselProps> = ({ recording }) => {
               height: "150px",
             }}
           >
-            <div className="flex items-center justify-center">
+            <div className="flex items-center justify-center mt-4">
               <button
                 onClick={() =>
                   window.main.openNewWindow(
@@ -81,7 +86,20 @@ export const VideoCarousel: React.FC<VideoCarouselProps> = ({ recording }) => {
               </button>
             </div>
             <div className="px-6 py-4 flex items-center justify-center">
-              <p className="text-black text-base font-bold">Highlights</p>
+              <p className="text-white text-base font-bold">Highlights</p>
+            </div>
+          </div>
+        )}
+        {highlightState === "Processing" && currentVideoIndex === 1 && (
+          <div
+            className="flex flex-col items-center justify-center border border-2 h-800 border-gray bg-center bg-contain bg-no-repeat"
+            style={{
+              backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url(${thumbnail})`,
+              height: "150px",
+            }}
+          >
+            <div className="px-6 py-4 flex items-center justify-center">
+              <p className="text-white text-base font-bold">Processing...</p>
             </div>
           </div>
         )}
