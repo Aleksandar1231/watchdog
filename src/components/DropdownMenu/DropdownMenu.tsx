@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export type props = {
   values: string[];
@@ -8,8 +8,14 @@ export type props = {
 
 export function DropdownMenu(props: props) {
   const { values, onChange, selectedOption } = props;
-  const [selectOption, setSelectOption] = useState(selectedOption ? selectedOption : values[0]);
+  const [selectOption, setSelectOption] = useState(
+    selectedOption ? selectedOption : values[0]
+  );
   const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    setSelectOption(selectedOption ? selectedOption : values[0]);
+  }, [selectedOption]);
 
   function toggleDropdown() {
     setIsOpen(!isOpen);

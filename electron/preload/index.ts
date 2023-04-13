@@ -38,9 +38,7 @@ const main = {
       date
     );
   },
-  saveConfig: async (
-    config: Config
-  ): Promise<void> => {
+  saveConfig: async (config: Config): Promise<void> => {
     return await ipcRenderer.invoke(
       "save-config",
       config.logFilePath,

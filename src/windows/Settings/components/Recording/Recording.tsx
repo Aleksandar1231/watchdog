@@ -1,16 +1,18 @@
 import DropdownMenu from "@/components/DropdownMenu";
-import { RootState } from "@/store";
-import { useDispatch, useSelector } from "react-redux";
-import { updateVideoQuality } from "../../../../redux/config";
+import { useEffect, useState } from "react";
 
-export function Recording() {
-  const dispatch = useDispatch();
-  const config = useSelector((state: RootState) => state.config);
-  const videoQuality = useSelector(
-    (state: RootState) => state.config.videoQuality
-  );
+export function Recording(props: { config: any }) {
+  const { config } = props;
+  const [videoQuality, setVideoQuality] = useState("");
+
+  useEffect(() => {
+    if (config) {
+      setVideoQuality(config.videoQuality);
+    }
+  }, [config]);
+
   const handleChange = async (newOption: any) => {
-    dispatch(updateVideoQuality(newOption));
+    setVideoQuality(newOption);
     await window.main.saveConfig({
       ...config,
       videoQuality: newOption,

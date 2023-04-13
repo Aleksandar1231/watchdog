@@ -1,25 +1,22 @@
 import DropdownMenu from "@/components/DropdownMenu";
-import { useDispatch, useSelector } from "react-redux";
-import { RootState } from "../../../../store";
-import {
-  updatePreBufferTime,
-  updatePostBufferTime,
-  updateAutoDelete,
-} from "../../../../redux/config";
+import { useEffect, useState } from "react";
 
-export function Highlights() {
-  const config = useSelector((state: RootState) => state.config);
-  const autoDelete = useSelector((state: RootState) => state.config.autoDelete);
-  const preBufferTime = useSelector(
-    (state: RootState) => state.config.preBufferSeconds
-  );
-  const postBufferTime = useSelector(
-    (state: RootState) => state.config.postBufferSeconds
-  );
-  const dispatch = useDispatch();
+export function Highlights(props: { config: any }) {
+  const { config } = props;
+  const [autoDelete, setAutoDelete] = useState(false);
+  const [preBufferTime, setPreBufferTime] = useState("");
+  const [postBufferTime, setPostBufferTime] = useState("");
+
+  useEffect(() => {
+    if (config) {
+      setAutoDelete(config.autoDelete);
+      setPreBufferTime(config.preBufferSeconds);
+      setPostBufferTime(config.postBufferSeconds);
+    }
+  }, [config]);
 
   const handlePreEventBufferChange = async (time: any) => {
-    dispatch(updatePreBufferTime(time));
+    setPreBufferTime(time);
     await window.main.saveConfig({
       ...config,
       preBufferSeconds: time,
@@ -27,15 +24,16 @@ export function Highlights() {
   };
 
   const handlePostEventBufferChange = async (time: any) => {
-    dispatch(updatePostBufferTime(time));
+    console.log(time);
+    setPostBufferTime(time);
     await window.main.saveConfig({
       ...config,
-      postBufferTime: time,
+      postBufferSeconds: time,
     });
   };
 
   const handleCheckBoxChange = async () => {
-    dispatch(updateAutoDelete(!autoDelete));
+    setAutoDelete(!autoDelete);
     await window.main.saveConfig({
       ...config,
       autoDelete: !autoDelete,

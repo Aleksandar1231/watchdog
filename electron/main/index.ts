@@ -63,6 +63,19 @@ const configStore = new Store({
   configName: "config",
 });
 
+const config = configStore.get("config");
+if (!config) {
+  configStore.set("config", {
+    logFilePath: `${app.getPath(
+      "home"
+    )}/Library/Logs/Guerrilla Trading Platform/events_log.csv`,
+    videoQuality: "Low",
+    autoDelete: false,
+    preBufferSeconds: "2 seconds",
+    postBufferSeconds: "2 seconds",
+  });
+}
+
 const recordingStore = new Store({
   configName: "recordings",
 });
@@ -217,8 +230,8 @@ ipcMain.handle("get-recordings", async (_) => {
 });
 
 ipcMain.handle("get-config", async (_) => {
-  const recordings = configStore.get("config");
-  return recordings;
+  const config = configStore.get("config");
+  return config;
 });
 
 ipcMain.handle(

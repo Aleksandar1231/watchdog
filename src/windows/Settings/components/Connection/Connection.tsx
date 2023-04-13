@@ -1,29 +1,25 @@
-import { updateLogFilePath } from "@/redux/config";
-import { RootState } from "@/store";
 import { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
 
-export function Connection() {
-  const config = useSelector((state: RootState) => state.config);
-  const [selectedDirectory, setSelectedDirectory] = useState<string>(
-    config.logFilePath
-  );
+export function Connection(props: { config: any }) {
+  const { config } = props;
+  const [logFilePath, setLogFilePath] = useState<string>("");
 
-  const dispatch = useDispatch();
+  useEffect(() => {
+    if (config) {
+      setLogFilePath(config.logFilePath);
+    }
+  }, [config]);
+
   const handleDirectoryButtonClick = async () => {
     const result = await window.main.openDirectory();
-    setSelectedDirectory(result);
-    dispatch(updateLogFilePath(result));
+    setLogFilePath(result);
     await window.main.saveConfig({ ...config, logFilePath: result });
-    const c = await window.main.getConfig();
-    console.log(c);
   };
 
   const handleDirectoryInputChange = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
-    setSelectedDirectory(event.target.value);
-    dispatch(updateLogFilePath(event.target.value));
+    setLogFilePath(event.target.value);
     await window.main.saveConfig({
       ...config,
       logFilePath: event.target.value,
@@ -39,7 +35,7 @@ export function Connection() {
           <input
             className="w-full appearance-none bg-transparent border-none text-gray-700 mr-3 py-1 px-2 leading-tight focus:outline-none"
             type="text"
-            value={selectedDirectory}
+            value={logFilePath}
             onChange={handleDirectoryInputChange}
           />
         </div>
