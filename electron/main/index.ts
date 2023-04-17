@@ -335,7 +335,7 @@ ipcMain.handle(
         event
       );
       console.log(filePath);
-      splitVideo(filePath, event);
+      splitAndMergeVideo(filePath, event);
     });
   }
 );
@@ -419,7 +419,58 @@ function convertBufferTimeToMilliseconds(bufferTime: BufferTime) {
   }
 }
 
-async function splitVideo(filePath: string, event: any) {
+function formatTime(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const hoursString = hours.toString().padStart(2, "0");
+  const minutesString = minutes.toString().padStart(2, "0");
+  const secondsString = seconds.toString().padStart(2, "0");
+
+  return `${hoursString}:${minutesString}:${secondsString}`;
+}
+
+async function split(filePath, segments, outputPath) {
+  const segmentPaths: string[] = [];
+  const segmentPromises: Promise<void>[] = [];
+  for (let i = 0; i < segments.length; i++) {
+    const { start, end } = segments[i];
+    const startTime = formatTime(start);
+    const duration = formatTime(end - start);
+    const segmentPath = `${outputPath}-part${i + 1}.mp4`;
+    segmentPaths.push(segmentPath);
+    segmentPromises.push(
+      new Promise<void>((resolve, reject) => {
+        ffmpeg(filePath)
+          .inputOptions(["-ss", startTime, "-t", duration])
+          .output(`${segmentPath}`)
+          //.outputOptions(["-c", "copy", "-map", "0:v"])
+          .on("error", (err) => {
+            console.log(err);
+            reject(err);
+          })
+          .on("end", () => {
+            console.log(`Segment ${i + 1} complete`);
+            resolve();
+          })
+          .run();
+      })
+    );
+  }
+
+  await Promise.all(segmentPromises)
+    .then(() => {
+      console.log("Splitting completed!");
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+
+  return segmentPaths;
+}
+
+async function splitAndMergeVideo(filePath: string, event: any) {
   if (fs.existsSync(filePath)) {
     const recording = recordingStore.get(filePath);
     const eventTimestamps = await filterEventsLog(recording);
@@ -447,73 +498,65 @@ async function splitVideo(filePath: string, event: any) {
       event
     );
 
-    const segmentPaths: string[] = [];
-
-    const inputCommand = ffmpeg(filePath);
+    console.time("splitting");
+    const segmentPaths: string[] = await split(filePath, segments, outputPath);
+    console.timeEnd("splitting");
     try {
-      // Split the video into segments
-      for (let i = 0; i < segments.length; i++) {
-        const { start, end } = segments[i];
-        const segmentPath = `${outputPath}-part${i + 1}.mp4`;
-        segmentPaths.push(segmentPath);
-
-        await new Promise<void>((resolve, reject) => {
-          inputCommand
-            .setStartTime(start)
-            .setDuration(end - start)
-            .output(segmentPath)
-            .on("error", (err) => {
-              reject(err);
-            })
-            .on("end", () => {
-              resolve();
-            })
-            .run();
-        });
-      }
-
+      console.time("merging");
       // Merge the segments into one file
-      const inputPaths = segmentPaths;
-      const command = ffmpeg();
-      inputPaths.forEach((inputPath) => {
-        command.input(inputPath);
-      });
-      command
-        .mergeToFile(`${outputPath}.mp4`, app.getPath("userData"))
-        .on("end", async () => {
-          // Delete the temporary segment files
-          for (const segmentPath of segmentPaths) {
-            await fs.promises.unlink(segmentPath);
+      await new Promise<void>((resolve, reject) => {
+        const inputPaths = segmentPaths;
+        const outputCommand = ffmpeg();
+        let filter = "";
+        inputPaths.forEach((inputPath, index) => {
+          if (fs.existsSync(inputPath)) {
+            filter += `[${index}:v:0]`;
+            outputCommand.input(inputPath);
           }
-          const thumbnail = await nativeImage
-            .createThumbnailFromPath(`${outputPath}.mp4`, {
-              height: 64,
-              width: 64,
-            })
-            .then((t) => t.toDataURL())
-            .catch((err) => console.log(err));
-
-          saveRecording(
-            filePath,
-            {
-              filePath: filePath,
-              highlightState: "Completed",
-              highlight: {
-                filePath: `${outputPath}.mp4`,
-                thumbnail: thumbnail ? thumbnail : "",
-                date: recording.date,
-              },
-              startTime: recording.startTime,
-              duration: recording.duration,
-              date: recording.date,
-              thumbnail: recording.thumbnail,
-            },
-            event
-          );
-        })
-        .on("error", async (err) => {
-          throw err;
         });
+        filter += `concat=n=${inputPaths.length}:v=1:[outv]`;
+        outputCommand
+          .complexFilter([filter], ["outv"])
+          .on("end", async () => {
+            console.timeEnd("merging");
+            // Delete the temporary segment files
+            for (const segmentPath of segmentPaths) {
+              await fs.promises.unlink(segmentPath);
+            }
+            const thumbnail = await nativeImage
+              .createThumbnailFromPath(`${outputPath}.mp4`, {
+                height: 64,
+                width: 64,
+              })
+              .then((t) => t.toDataURL())
+              .catch((err) => console.log(err));
+
+            saveRecording(
+              filePath,
+              {
+                filePath: filePath,
+                highlightState: "Completed",
+                highlight: {
+                  filePath: `${outputPath}.mp4`,
+                  thumbnail: thumbnail ? thumbnail : "",
+                  date: recording.date,
+                },
+                startTime: recording.startTime,
+                duration: recording.duration,
+                date: recording.date,
+                thumbnail: recording.thumbnail,
+              },
+              event
+            );
+            resolve();
+          })
+          .on("error", async (err) => {
+            reject();
+            throw err;
+          })
+          .output(`${outputPath}.mp4`)
+          .run();
+      });
     } catch (err) {
       // Delete the temporary segment files if an error occurs
       for (const segmentPath of segmentPaths) {
@@ -542,7 +585,7 @@ async function parseEventLog(csvFilePath: string) {
   console.log(csvFilePath);
   const parser = csvParse({
     delimiter: ",",
-    relax_column_count: true
+    relax_column_count: true,
   });
   parser.on("readable", () => {
     let record;
