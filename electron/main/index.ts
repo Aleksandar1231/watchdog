@@ -19,6 +19,7 @@ import fs, { writeFile, readFileSync } from "fs";
 import ffmpeg from "fluent-ffmpeg";
 import { parse as csvParse } from "csv-parse";
 import { BufferTime, Config, Recording, VideoQuality } from "../types";
+import { spawn } from "child_process";
 
 // The built directory structure
 //
@@ -506,18 +507,36 @@ async function splitAndMergeVideo(filePath: string, event: any) {
       // Merge the segments into one file
       await new Promise<void>((resolve, reject) => {
         const inputPaths = segmentPaths;
-        const outputCommand = ffmpeg();
-        let filter = "";
-        inputPaths.forEach((inputPath, index) => {
-          if (fs.existsSync(inputPath)) {
-            filter += `[${index}:v:0]`;
-            outputCommand.input(inputPath);
-          }
+        const inputArgs = inputPaths.flatMap((path) => ["-i", path]);
+        const filterArgs = [
+          "-filter_complex",
+          `concat=n=${inputPaths.length}:v=1[outv]`,
+          "-map",
+          "[outv]",
+        ];
+        const ffmpegArgs = [
+          ...inputArgs,
+          ...filterArgs,
+          "-c:v",
+          "libx264",
+          "-crf",
+          "23",
+          "-preset",
+          "veryfast",
+          "-movflags",
+          "+faststart",
+          `${outputPath}.mp4`,
+        ];
+        const ffmpeg = spawn("ffmpeg", ffmpegArgs);
+        ffmpeg.stderr.on("data", (data) => {
+          console.error(data.toString());
         });
-        filter += `concat=n=${inputPaths.length}:v=1:[outv]`;
-        outputCommand
-          .complexFilter([filter], ["outv"])
-          .on("end", async () => {
+        ffmpeg.on("error", (error) => {
+          console.error(`Error merging videos: ${error.message}`);
+          reject(error);
+        });
+        ffmpeg.on("exit", async (code) => {
+          if (code === 0) {
             console.timeEnd("merging");
             // Delete the temporary segment files
             for (const segmentPath of segmentPaths) {
@@ -549,13 +568,13 @@ async function splitAndMergeVideo(filePath: string, event: any) {
               event
             );
             resolve();
-          })
-          .on("error", async (err) => {
-            reject();
-            throw err;
-          })
-          .output(`${outputPath}.mp4`)
-          .run();
+          } else {
+            console.error(
+              `Error merging videos: ffmpeg exited with code ${code}`
+            );
+            reject(new Error(`ffmpeg exited with code ${code}`));
+          }
+        });
       });
     } catch (err) {
       // Delete the temporary segment files if an error occurs
