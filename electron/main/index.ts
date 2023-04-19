@@ -441,21 +441,39 @@ async function split(filePath, segments, outputPath) {
     const duration = formatTime(end - start);
     const segmentPath = `${outputPath}-part${i + 1}.mp4`;
     segmentPaths.push(segmentPath);
+
+    console.log(start, end, duration);
+    const ffmpegArgs = [
+      "-i",
+      filePath,
+      "-ss",
+      startTime,
+      "-t",
+      duration,
+      segmentPath,
+    ];
+    const ffmpeg = spawn("ffmpeg", ffmpegArgs);
+
     segmentPromises.push(
       new Promise<void>((resolve, reject) => {
-        ffmpeg(filePath)
-          .inputOptions(["-ss", startTime, "-t", duration])
-          .output(`${segmentPath}`)
-          //.outputOptions(["-c", "copy", "-map", "0:v"])
+        ffmpeg
           .on("error", (err) => {
-            console.log(err);
+            console.log(`Error splitting Segment ${i + 1}`);
             reject(err);
           })
-          .on("end", () => {
-            console.log(`Segment ${i + 1} complete`);
-            resolve();
-          })
-          .run();
+          .on("exit", (code) => {
+            if (code === 0) {
+              console.log(`Segment ${i + 1} complete`);
+              resolve();
+            } else {
+              console.log(
+                `Error splitting Segment ${
+                  i + 1
+                }: ffmpeg exited with code ${code}`
+              );
+              reject(new Error(`ffmpeg exited with code ${code}`));
+            }
+          });
       })
     );
   }
@@ -528,9 +546,6 @@ async function splitAndMergeVideo(filePath: string, event: any) {
           `${outputPath}.mp4`,
         ];
         const ffmpeg = spawn("ffmpeg", ffmpegArgs);
-        ffmpeg.stderr.on("data", (data) => {
-          console.error(data.toString());
-        });
         ffmpeg.on("error", (error) => {
           console.error(`Error merging videos: ${error.message}`);
           reject(error);
