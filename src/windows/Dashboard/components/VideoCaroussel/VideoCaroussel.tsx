@@ -9,6 +9,18 @@ import {
   faEllipsisH,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { Button } from "@saas-ui/react";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverHeader,
+  PopoverBody,
+  PopoverFooter,
+  PopoverArrow,
+  PopoverCloseButton,
+  PopoverAnchor,
+} from '@chakra-ui/react'
 
 interface VideoCarouselProps {
   recording: Recording;
@@ -136,26 +148,37 @@ export const VideoCarousel: React.FC<VideoCarouselProps> = ({ recording }) => {
           </button>
         </div>
       </div>
-      <div className="container flex flex-row justify-evenly">
+      <div className="container flex flex-row justify-between items-center">
         <div className="py-2">
-          <button className="bg-purple-300 hover:bg-purple-700 border border-2 border-purple-700 text-black text-sm px-4 ">
-            Share...
-          </button>
+          <Button colorScheme="green" >Share...</Button>
+        </div>
+
+        <div className="py-2">
+          <Button colorScheme="blue">Record Voiceover</Button>
+        </div>
+
+        <div className="py-2"> 
+            <FontAwesomeIcon icon={faHeart} className="hover:text-red-600 hover:cursor-pointer" />
         </div>
         <div className="py-2">
-          <button className="bg-green-200 hover:bg-green-400 border border-2 border-green-700 text-black text-sm px-4 ">
-            Voiceover
-          </button>
-        </div>
-        <div className="py-2">
-          <button className="bg-gray-700 text-white text-small px-2">
-            <FontAwesomeIcon icon={faHeart} className="text-small" />
-          </button>
-        </div>
-        <div className="py-2">
-          <button className="text-gray-700 text-base">
-            <FontAwesomeIcon icon={faEllipsisH} className="text-base" />
-          </button>
+          <Popover>
+            <PopoverTrigger>
+              <Button><FontAwesomeIcon icon={faEllipsisH} className="text-base" /></Button>
+            </PopoverTrigger>
+            <PopoverContent>
+              <PopoverArrow />
+              <PopoverCloseButton />
+              <PopoverBody>
+                <div className="[&>*]:border-b [&>*]:py-1 [&>*]:p-1 [&>*]:cursor-pointer hover:[&>*]:bg-gray-200">
+                    <div >Edit Video Name</div>
+                    <div>Add Tags</div>
+                    <div>Show in Folder</div>
+                    <div>Delete</div>
+                    <div className="last:border-0">Add a Journal Entry</div>
+                </div>
+              </PopoverBody>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
     </div>
