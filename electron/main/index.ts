@@ -317,13 +317,11 @@ ipcMain.handle(
 
     const buffer = Buffer.from(arrayBuffer);
     writeFile(filePath, buffer, async () => {
-      const thumbnail = await nativeImage
-        .createThumbnailFromPath(filePath, {
-          height: 64,
-          width: 64,
-        })
-        .then((t) => t.toDataURL())
-        .catch((err) => console.log(err));
+      const screenshotPath = await generateThumbnail(filePath);
+      const image = nativeImage.createFromPath(screenshotPath);
+      const thumbnailSize = { width: 64, height: 64 };
+      image.resize(thumbnailSize);
+      const thumbnail = image.toDataURL();
       saveRecording(
         filePath,
         {
@@ -335,11 +333,60 @@ ipcMain.handle(
         },
         event
       );
+      await fs.promises.unlink(screenshotPath);
       console.log(filePath);
       splitAndMergeVideo(filePath, event);
     });
   }
 );
+
+async function generateThumbnail(filePath) {
+  const timestamp = formatTime(1);
+  const tempPath = `${filePath}-thumbnail.png`;
+  const ffmpegArgs = [
+    "-i",
+    filePath,
+    "-ss",
+    timestamp,
+    "-vframes",
+    1,
+    tempPath,
+  ];
+  const ffmpeg = spawn("ffmpeg", ffmpegArgs);
+
+  return await new Promise<string>((resolve, reject) => {
+    ffmpeg
+      .on("error", (err) => {
+        console.log(`Error getting thumbnail for ${filePath}: ${err}`);
+        reject("");
+      })
+      .on("exit", (code) => {
+        ffmpeg.kill("SIGTERM");
+        if (code === 0) {
+          console.log(`Generated thumbnail for ${filePath}`);
+          resolve(tempPath);
+        } else {
+          console.log(`Error getting thumbnail for ${filePath}`);
+          reject("");
+        }
+      });
+    ffmpeg.stdout.pipe(process.stdout);
+    ffmpeg.stderr.pipe(process.stderr);
+    process.on("SIGTERM", () => {
+      console.log("Received SIGTERM, terminating ffmpeg process...");
+      ffmpeg.kill("SIGTERM");
+      resolve("");
+      process.exit();
+    });
+
+    process.on("SIGINT", () => {
+      console.log("Received SIGINT, terminating ffmpeg process...");
+      ffmpeg.kill("SIGINT");
+      resolve("");
+      process.exit();
+    });
+  });
+}
 
 function convertMilliToSeconds(milli: number) {
   const seconds = Math.floor(milli / 1000);
@@ -442,7 +489,6 @@ async function split(filePath, segments, outputPath) {
     const segmentPath = `${outputPath}-part${i + 1}.mp4`;
     segmentPaths.push(segmentPath);
 
-    console.log(start, end, duration);
     const ffmpegArgs = [
       "-i",
       filePath,
@@ -462,6 +508,7 @@ async function split(filePath, segments, outputPath) {
             reject(err);
           })
           .on("exit", (code) => {
+            ffmpeg.kill("SIGTERM");
             if (code === 0) {
               console.log(`Segment ${i + 1} complete`);
               resolve();
@@ -474,6 +521,21 @@ async function split(filePath, segments, outputPath) {
               reject(new Error(`ffmpeg exited with code ${code}`));
             }
           });
+        ffmpeg.stdout.pipe(process.stdout);
+        ffmpeg.stderr.pipe(process.stderr);
+        process.on("SIGTERM", () => {
+          console.log("Received SIGTERM, terminating ffmpeg process...");
+          ffmpeg.kill("SIGTERM");
+          resolve();
+          process.exit();
+        });
+
+        process.on("SIGINT", () => {
+          console.log("Received SIGINT, terminating ffmpeg process...");
+          ffmpeg.kill("SIGINT");
+          resolve();
+          process.exit();
+        });
       })
     );
   }
@@ -520,88 +582,91 @@ async function splitAndMergeVideo(filePath: string, event: any) {
     console.time("splitting");
     const segmentPaths: string[] = await split(filePath, segments, outputPath);
     console.timeEnd("splitting");
-    try {
-      console.time("merging");
-      // Merge the segments into one file
-      await new Promise<void>((resolve, reject) => {
-        const inputPaths = segmentPaths;
-        const inputArgs = inputPaths.flatMap((path) => ["-i", path]);
-        const filterArgs = [
-          "-filter_complex",
-          `concat=n=${inputPaths.length}:v=1[outv]`,
-          "-map",
-          "[outv]",
-        ];
-        const ffmpegArgs = [
-          ...inputArgs,
-          ...filterArgs,
-          "-c:v",
-          "libx264",
-          "-crf",
-          "23",
-          "-preset",
-          "veryfast",
-          "-movflags",
-          "+faststart",
-          `${outputPath}.mp4`,
-        ];
-        const ffmpeg = spawn("ffmpeg", ffmpegArgs);
-        ffmpeg.on("error", (error) => {
-          console.error(`Error merging videos: ${error.message}`);
-          reject(error);
-        });
-        ffmpeg.on("exit", async (code) => {
-          if (code === 0) {
-            console.timeEnd("merging");
-            // Delete the temporary segment files
-            for (const segmentPath of segmentPaths) {
-              await fs.promises.unlink(segmentPath);
-            }
-            const thumbnail = await nativeImage
-              .createThumbnailFromPath(`${outputPath}.mp4`, {
-                height: 64,
-                width: 64,
-              })
-              .then((t) => t.toDataURL())
-              .catch((err) => console.log(err));
 
-            saveRecording(
-              filePath,
-              {
-                filePath: filePath,
-                highlightState: "Completed",
-                highlight: {
-                  filePath: `${outputPath}.mp4`,
-                  thumbnail: thumbnail ? thumbnail : "",
-                  date: recording.date,
-                },
-                startTime: recording.startTime,
-                duration: recording.duration,
-                date: recording.date,
-                thumbnail: recording.thumbnail,
-              },
-              event
-            );
-            resolve();
-          } else {
-            console.error(
-              `Error merging videos: ffmpeg exited with code ${code}`
-            );
-            reject(new Error(`ffmpeg exited with code ${code}`));
-          }
-        });
+    console.time("merging");
+    // Merge the segments into one file
+    return await new Promise<void>((resolve, reject) => {
+      const inputPaths = segmentPaths;
+      const inputArgs = inputPaths.flatMap((path) => ["-i", path]);
+      const filterArgs = [
+        "-filter_complex",
+        `concat=n=${inputPaths.length}:v=1[outv]`,
+        "-map",
+        "[outv]",
+      ];
+      const ffmpegArgs = [
+        ...inputArgs,
+        ...filterArgs,
+        "-c:v",
+        "libx264",
+        "-crf",
+        "23",
+        "-preset",
+        "veryfast",
+        "-movflags",
+        "+faststart",
+        `${outputPath}.mp4`,
+      ];
+      const ffmpeg = spawn("ffmpeg", ffmpegArgs);
+      ffmpeg.stdout.pipe(process.stdout);
+      ffmpeg.stderr.pipe(process.stderr);
+      ffmpeg.on("error", (error) => {
+        console.log(`Error merging videos: ${error.message}`);
+        reject(error);
       });
-    } catch (err) {
-      // Delete the temporary segment files if an error occurs
-      for (const segmentPath of segmentPaths) {
-        try {
-          await fs.promises.unlink(segmentPath);
-        } catch (e) {
-          // Ignore errors when deleting files
+      process.on("SIGTERM", () => {
+        console.log("Received SIGTERM, terminating ffmpeg process...");
+        ffmpeg.kill("SIGTERM");
+        resolve();
+        process.exit();
+      });
+
+      process.on("SIGINT", () => {
+        console.log("Received SIGINT, terminating ffmpeg process...");
+        ffmpeg.kill("SIGINT");
+        resolve();
+        process.exit();
+      });
+      ffmpeg.on("exit", async (code) => {
+        ffmpeg.kill("SIGTERM");
+        if (code === 0) {
+          console.timeEnd("merging");
+          // Delete the temporary segment files
+          for (const segmentPath of segmentPaths) {
+            await fs.promises.unlink(segmentPath);
+          }
+          const thumbnail = await nativeImage
+            .createThumbnailFromPath(`${outputPath}.mp4`, {
+              height: 64,
+              width: 64,
+            })
+            .then((t) => t.toDataURL())
+            .catch((err) => console.log(err));
+
+          saveRecording(
+            filePath,
+            {
+              filePath: filePath,
+              highlightState: "Completed",
+              highlight: {
+                filePath: `${outputPath}.mp4`,
+                thumbnail: thumbnail ? thumbnail : "",
+                date: recording.date,
+              },
+              startTime: recording.startTime,
+              duration: recording.duration,
+              date: recording.date,
+              thumbnail: recording.thumbnail,
+            },
+            event
+          );
+          resolve();
+        } else {
+          console.log(`Error merging videos: ffmpeg exited with code ${code}`);
+          reject(new Error(`ffmpeg exited with code ${code}`));
         }
-      }
-      console.log(err);
-    }
+      });
+    });
   }
 }
 
