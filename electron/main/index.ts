@@ -317,13 +317,11 @@ ipcMain.handle(
 
     const buffer = Buffer.from(arrayBuffer);
     writeFile(filePath, buffer, async () => {
-      const thumbnail = await nativeImage
-        .createThumbnailFromPath(filePath, {
-          height: 64,
-          width: 64,
-        })
-        .then((t) => t.toDataURL())
-        .catch((err) => console.log(err));
+      const screenshotPath = await generateThumbnail(filePath);
+      const image = nativeImage.createFromPath(screenshotPath);
+      const thumbnailSize = { width: 64, height: 64 };
+      image.resize(thumbnailSize);
+      const thumbnail = image.toDataURL();
       saveRecording(
         filePath,
         {
@@ -335,11 +333,58 @@ ipcMain.handle(
         },
         event
       );
+      await fs.promises.unlink(screenshotPath);
       console.log(filePath);
       splitAndMergeVideo(filePath, event);
     });
   }
 );
+
+async function generateThumbnail(filePath) {
+  const timestamp = formatTime(1);
+  const tempPath = `${filePath}-thumbnail.png`;
+  const ffmpegArgs = [
+    "-i",
+    filePath,
+    "-ss",
+    timestamp,
+    "-vframes",
+    1,
+    tempPath,
+  ];
+  const ffmpeg = spawn("ffmpeg", ffmpegArgs);
+
+  return await new Promise<string>((resolve, reject) => {
+    ffmpeg
+      .on("error", (err) => {
+        console.log(`Error getting thumbnail for ${filePath}: ${err}`);
+        reject("");
+      })
+      .on("exit", (code) => {
+        ffmpeg.kill("SIGTERM");
+        if (code === 0) {
+          console.log(`Generated thumbnail for ${filePath}`);
+          resolve(tempPath);
+        } else {
+          console.log(`Error getting thumbnail for ${filePath}`);
+          reject("");
+        }
+      });
+    ffmpeg.stdout.pipe(process.stdout);
+    ffmpeg.stderr.pipe(process.stderr);
+    process.on("SIGTERM", () => {
+      console.log("Received SIGTERM, terminating ffmpeg process...");
+      ffmpeg.kill("SIGTERM");
+      resolve("");
+    });
+
+    process.on("SIGINT", () => {
+      console.log("Received SIGINT, terminating ffmpeg process...");
+      ffmpeg.kill("SIGINT");
+      resolve("");
+    });
+  });
+}
 
 function convertMilliToSeconds(milli: number) {
   const seconds = Math.floor(milli / 1000);
@@ -461,6 +506,7 @@ async function split(filePath, segments, outputPath) {
             reject(err);
           })
           .on("exit", (code) => {
+            ffmpeg.kill("SIGTERM");
             if (code === 0) {
               console.log(`Segment ${i + 1} complete`);
               resolve();
@@ -576,6 +622,7 @@ async function splitAndMergeVideo(filePath: string, event: any) {
         resolve();
       });
       ffmpeg.on("exit", async (code) => {
+        ffmpeg.kill("SIGTERM");
         if (code === 0) {
           console.timeEnd("merging");
           // Delete the temporary segment files
