@@ -376,12 +376,14 @@ async function generateThumbnail(filePath) {
       console.log("Received SIGTERM, terminating ffmpeg process...");
       ffmpeg.kill("SIGTERM");
       resolve("");
+      process.exit();
     });
 
     process.on("SIGINT", () => {
       console.log("Received SIGINT, terminating ffmpeg process...");
       ffmpeg.kill("SIGINT");
       resolve("");
+      process.exit();
     });
   });
 }
@@ -525,12 +527,14 @@ async function split(filePath, segments, outputPath) {
           console.log("Received SIGTERM, terminating ffmpeg process...");
           ffmpeg.kill("SIGTERM");
           resolve();
+          process.exit();
         });
 
         process.on("SIGINT", () => {
           console.log("Received SIGINT, terminating ffmpeg process...");
           ffmpeg.kill("SIGINT");
           resolve();
+          process.exit();
         });
       })
     );
@@ -614,12 +618,14 @@ async function splitAndMergeVideo(filePath: string, event: any) {
         console.log("Received SIGTERM, terminating ffmpeg process...");
         ffmpeg.kill("SIGTERM");
         resolve();
+        process.exit();
       });
 
       process.on("SIGINT", () => {
         console.log("Received SIGINT, terminating ffmpeg process...");
         ffmpeg.kill("SIGINT");
         resolve();
+        process.exit();
       });
       ffmpeg.on("exit", async (code) => {
         ffmpeg.kill("SIGTERM");
