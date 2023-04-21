@@ -20,7 +20,7 @@ import {
   PopoverArrow,
   PopoverCloseButton,
   PopoverAnchor,
-} from '@chakra-ui/react'
+} from "@chakra-ui/react";
 
 interface VideoCarouselProps {
   recording: Recording;
@@ -29,15 +29,20 @@ interface VideoCarouselProps {
 export const VideoCarousel: React.FC<VideoCarouselProps> = ({ recording }) => {
   const { filePath, date, thumbnail, highlight, highlightState } = recording;
   const [currentVideoIndex, setCurrentVideoIndex] = useState(
-    highlightState ? 1 : 0
+    highlight ? 1 : 0
   );
+  console.log(highlightState);
 
   useEffect(() => {
-    setCurrentVideoIndex(highlightState ? 1 : 0);
-  }, [highlightState]);
+    setCurrentVideoIndex(highlight ? 1 : 0);
+  }, [ highlight]);
 
   function getDateString(date: number) {
     return new Date(date).toString();
+  }
+
+  function generateHighlights() {
+    window.main.generateHighlights(filePath);
   }
 
   return (
@@ -150,31 +155,47 @@ export const VideoCarousel: React.FC<VideoCarouselProps> = ({ recording }) => {
       </div>
       <div className="container flex flex-row justify-between items-center">
         <div className="py-2">
-          <Button colorScheme="green" >Share...</Button>
+          <Button colorScheme="green">Share...</Button>
         </div>
 
         <div className="py-2">
           <Button colorScheme="blue">Record Voiceover</Button>
         </div>
 
-        <div className="py-2"> 
-            <FontAwesomeIcon icon={faHeart} className="hover:text-red-600 hover:cursor-pointer" />
+        <div className="py-2">
+          <FontAwesomeIcon
+            icon={faHeart}
+            className="hover:text-red-600 hover:cursor-pointer"
+          />
         </div>
         <div className="py-2">
           <Popover>
             <PopoverTrigger>
-              <Button><FontAwesomeIcon icon={faEllipsisH} className="text-base" /></Button>
+              <Button>
+                <FontAwesomeIcon icon={faEllipsisH} className="text-base" />
+              </Button>
             </PopoverTrigger>
             <PopoverContent>
               <PopoverArrow />
               <PopoverCloseButton />
               <PopoverBody>
                 <div className="[&>*]:border-b [&>*]:py-1 [&>*]:p-1 [&>*]:cursor-pointer hover:[&>*]:bg-gray-200">
-                    <div >Edit Video Name</div>
-                    <div>Add Tags</div>
-                    <div>Show in Folder</div>
-                    <div>Delete</div>
-                    <div className="last:border-0">Add a Journal Entry</div>
+                  <div>Edit Video Name</div>
+                  <div>
+                    <button
+                      disabled={highlight ? true : false}
+                      onClick={generateHighlights}
+                      className={`${
+                        highlight ? "text-gray-500" : "text-black"
+                      }`}
+                    >
+                      Generate Highlights
+                    </button>
+                  </div>
+                  <div>Add Tags</div>
+                  <div>Show in Folder</div>
+                  <div>Delete</div>
+                  <div className="last:border-0">Add a Journal Entry</div>
                 </div>
               </PopoverBody>
             </PopoverContent>

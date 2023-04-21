@@ -104,12 +104,30 @@ function getRecordings() {
           duration: v.duration,
           startTime: v.startTime,
           highlight: v.highlight,
+          highlightState: v.highlightState,
         };
       })
     : [];
   const filteredRecordings = result?.filter((recording) =>
     fs.existsSync(recording.filePath)
   );
+
+  filteredRecordings?.forEach((filteredRecording) => {
+    if (
+      filteredRecording.highlightState &&
+      (!filteredRecording.highlight ||
+        !fs.existsSync(filteredRecording.highlight.filePath))
+    ) {
+      recordingStore.set(filteredRecording.filePath, {
+        filePath: filteredRecording.filePath,
+        thumbnail: filteredRecording.thumbnail,
+        date: filteredRecording.date,
+        duration: filteredRecording.duration,
+        startTime: filteredRecording.startTime,
+      });
+    }
+  });
+
   if (filteredRecordings?.length !== result.length) {
     recordingStore.clear();
     filteredRecordings.forEach((filteredRecording) => {
@@ -340,6 +358,11 @@ ipcMain.handle(
   }
 );
 
+ipcMain.handle("generate-highlights", (event, filePath) => {
+  console.log(filePath);
+  splitAndMergeVideo(filePath, event);
+});
+
 async function generateThumbnail(filePath) {
   const timestamp = formatTime(1);
   const tempPath = `${filePath}-thumbnail.png`;
@@ -487,6 +510,9 @@ async function split(filePath, segments, outputPath) {
     const startTime = formatTime(start);
     const duration = formatTime(end - start);
     const segmentPath = `${outputPath}-part${i + 1}.mp4`;
+    if (fs.existsSync(segmentPath)) {
+      await fs.promises.unlink(segmentPath);
+    }
     segmentPaths.push(segmentPath);
 
     const ffmpegArgs = [
@@ -583,8 +609,11 @@ async function splitAndMergeVideo(filePath: string, event: any) {
     const segmentPaths: string[] = await split(filePath, segments, outputPath);
     console.timeEnd("splitting");
 
-    console.time("merging");
     // Merge the segments into one file
+    console.time("merging");
+    if (fs.existsSync(`${outputPath}.mp4`)) {
+      await fs.promises.unlink(`${outputPath}.mp4`);
+    }
     return await new Promise<void>((resolve, reject) => {
       const inputPaths = segmentPaths;
       const inputArgs = inputPaths.flatMap((path) => ["-i", path]);
@@ -612,6 +641,17 @@ async function splitAndMergeVideo(filePath: string, event: any) {
       ffmpeg.stderr.pipe(process.stderr);
       ffmpeg.on("error", (error) => {
         console.log(`Error merging videos: ${error.message}`);
+        saveRecording(
+          filePath,
+          {
+            filePath: filePath,
+            startTime: recording.startTime,
+            duration: recording.duration,
+            date: recording.date,
+            thumbnail: recording.thumbnail,
+          },
+          event
+        );
         reject(error);
       });
       process.on("SIGTERM", () => {
@@ -663,6 +703,17 @@ async function splitAndMergeVideo(filePath: string, event: any) {
           resolve();
         } else {
           console.log(`Error merging videos: ffmpeg exited with code ${code}`);
+          saveRecording(
+            filePath,
+            {
+              filePath: filePath,
+              startTime: recording.startTime,
+              duration: recording.duration,
+              date: recording.date,
+              thumbnail: recording.thumbnail,
+            },
+            event
+          );
           reject(new Error(`ffmpeg exited with code ${code}`));
         }
       });

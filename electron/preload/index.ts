@@ -38,6 +38,9 @@ const main = {
       date
     );
   },
+  generateHighlights: async (filePath: string): Promise<void> => {
+    return await ipcRenderer.invoke("generate-highlights", filePath);
+  },
   saveConfig: async (config: Config): Promise<void> => {
     return await ipcRenderer.invoke(
       "save-config",
