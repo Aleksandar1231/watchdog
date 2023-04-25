@@ -6,6 +6,11 @@ export type Recording = {
   startTime?: number;
   duration?: number;
   highlightState?: HighlightState;
+  voiceoverState?: HighlightState;
+  voiceover?: Voiceover;
+};
+export type Voiceover = {
+  filePath: string;
 };
 export type BufferTime = "2 seconds" | "5 seconds" | "10 seconds";
 export type VideoQuality = "Low" | "High";

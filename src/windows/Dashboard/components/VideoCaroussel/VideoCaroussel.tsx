@@ -27,15 +27,22 @@ interface VideoCarouselProps {
 }
 
 export const VideoCarousel: React.FC<VideoCarouselProps> = ({ recording }) => {
-  const { filePath, date, thumbnail, highlight, highlightState } = recording;
+  const {
+    filePath,
+    date,
+    thumbnail,
+    highlight,
+    highlightState,
+    voiceover,
+    voiceoverState,
+  } = recording;
   const [currentVideoIndex, setCurrentVideoIndex] = useState(
-    highlight ? 1 : 0
+    voiceover ? 2 : highlight ? 1 : 0
   );
-  console.log(highlightState);
 
   useEffect(() => {
-    setCurrentVideoIndex(highlight ? 1 : 0);
-  }, [ highlight]);
+    setCurrentVideoIndex(voiceover ? 2 : highlight ? 1 : 0);
+  }, [highlight, voiceover]);
 
   function getDateString(date: number) {
     return new Date(date).toString();
@@ -79,7 +86,19 @@ export const VideoCarousel: React.FC<VideoCarouselProps> = ({ recording }) => {
             </div>
           </div>
         )}
-        {highlight && currentVideoIndex === 1 && (
+        {highlightState === "Processing" && currentVideoIndex === 1 ? (
+          <div
+            className="flex flex-col items-center justify-center border border-2 h-800 border-gray bg-center bg-contain bg-no-repeat"
+            style={{
+              backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url(${thumbnail})`,
+              height: "150px",
+            }}
+          >
+            <div className="px-6 py-4 flex items-center justify-center">
+              <p className="text-white text-base font-bold">Processing...</p>
+            </div>
+          </div>
+        ) : highlight && currentVideoIndex === 1 ? (
           <div
             className="flex flex-col items-center justify-center border border-2 h-800 border-gray bg-center bg-contain bg-no-repeat"
             style={{
@@ -106,12 +125,14 @@ export const VideoCarousel: React.FC<VideoCarouselProps> = ({ recording }) => {
               <p className="text-white text-base font-bold">Highlights</p>
             </div>
           </div>
-        )}
-        {highlightState === "Processing" && currentVideoIndex === 1 && (
+        ) : null}
+        {voiceoverState === "Processing" && currentVideoIndex === 2 ? (
           <div
             className="flex flex-col items-center justify-center border border-2 h-800 border-gray bg-center bg-contain bg-no-repeat"
             style={{
-              backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url(${thumbnail})`,
+              backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url(${
+                highlight!.thumbnail
+              })`,
               height: "150px",
             }}
           >
@@ -119,17 +140,52 @@ export const VideoCarousel: React.FC<VideoCarouselProps> = ({ recording }) => {
               <p className="text-white text-base font-bold">Processing...</p>
             </div>
           </div>
-        )}
+        ) : voiceover && currentVideoIndex === 2 ? (
+          <div
+            className="flex flex-col items-center justify-center border border-2 h-800 border-gray bg-center bg-contain bg-no-repeat"
+            style={{
+              backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url(${
+                highlight!.thumbnail
+              })`,
+              height: "150px",
+            }}
+          >
+            <div className="flex items-center justify-center mt-4">
+              <button
+                onClick={() =>
+                  window.main.openNewWindow(
+                    `/videoPlayer/${encodeURIComponent(voiceover.filePath)}`
+                  )
+                }
+              >
+                <FontAwesomeIcon
+                  icon={faPlay}
+                  size="4x"
+                  className="text-gray opacity-50 hover:opacity-75"
+                />
+              </button>
+            </div>
+            <div className="px-6 py-4 flex items-center justify-center">
+              <p className="text-white text-base font-bold">Voiceover</p>
+            </div>
+          </div>
+        ) : null}
         <div className="absolute inset-y-0 left-0 flex items-center justify-center">
           <button
             className="p-2  text-gray-800"
             onClick={() => {
-              if (highlight && currentVideoIndex === 0) {
-                setCurrentVideoIndex(1);
-                return;
+              if (currentVideoIndex === 0) {
+                if (voiceover) {
+                  setCurrentVideoIndex(2);
+                } else if (highlight) {
+                  setCurrentVideoIndex(1);
+                }
               } else if (currentVideoIndex === 1) {
                 setCurrentVideoIndex(0);
-                return;
+              } else if (currentVideoIndex === 2) {
+                if (highlight) {
+                  setCurrentVideoIndex(1);
+                } else setCurrentVideoIndex(0);
               }
             }}
           >
@@ -140,12 +196,18 @@ export const VideoCarousel: React.FC<VideoCarouselProps> = ({ recording }) => {
           <button
             className="p-2 text-gray-800"
             onClick={() => {
-              if (highlight && currentVideoIndex === 0) {
-                setCurrentVideoIndex(1);
-                return;
+              if (currentVideoIndex === 0) {
+                if (highlight) {
+                  setCurrentVideoIndex(1);
+                } else if (voiceover) {
+                  setCurrentVideoIndex(2);
+                }
               } else if (currentVideoIndex === 1) {
+                if (voiceover) {
+                  setCurrentVideoIndex(2);
+                } else setCurrentVideoIndex(0);
+              } else if (currentVideoIndex === 2) {
                 setCurrentVideoIndex(0);
-                return;
               }
             }}
           >
@@ -159,7 +221,17 @@ export const VideoCarousel: React.FC<VideoCarouselProps> = ({ recording }) => {
         </div>
 
         <div className="py-2">
-          <Button colorScheme="blue">Record Voiceover</Button>
+          <Button
+            colorScheme="blue"
+            disabled={highlight ? false : true}
+            onClick={() =>
+              window.main.openNewWindow(
+                `/voiceover/${encodeURIComponent(highlight!.filePath)}`
+              )
+            }
+          >
+            Record Voiceover
+          </Button>
         </div>
 
         <div className="py-2">

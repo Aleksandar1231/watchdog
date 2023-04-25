@@ -20,6 +20,20 @@ const main = {
   openDirectory: async (): Promise<string> => {
     return await ipcRenderer.invoke("open-directory");
   },
+  saveVoiceover: async (
+    fileName: string,
+    highlightPath,
+    blob: any,
+    dialogLabel: string,
+  ): Promise<string> => {
+    return await ipcRenderer.invoke(
+      "save-voiceover",
+      fileName,
+      highlightPath,
+      blob,
+      dialogLabel,
+    );
+  },
   saveVideo: async (
     fileName: string,
     blob: any,

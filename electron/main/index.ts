@@ -105,6 +105,8 @@ function getRecordings() {
           startTime: v.startTime,
           highlight: v.highlight,
           highlightState: v.highlightState,
+          voiceoverState: v.voiceoverState,
+          voiceover: v.voiceover,
         };
       })
     : [];
@@ -126,6 +128,21 @@ function getRecordings() {
         startTime: filteredRecording.startTime,
       });
     }
+    if (
+      filteredRecording.voiceoverState &&
+      (!filteredRecording.voiceover ||
+        !fs.existsSync(filteredRecording.voiceover.filePath))
+    ) {
+      recordingStore.set(filteredRecording.filePath, {
+        filePath: filteredRecording.filePath,
+        thumbnail: filteredRecording.thumbnail,
+        date: filteredRecording.date,
+        duration: filteredRecording.duration,
+        startTime: filteredRecording.startTime,
+        highlight: filteredRecording.highlight,
+        highlightState: filteredRecording.highlightState,
+      });
+    }
   });
 
   if (filteredRecordings?.length !== result.length) {
@@ -141,7 +158,7 @@ function getRecordings() {
 function saveRecording(
   filePath: string,
   recording: Recording,
-  event: Electron.IpcMainInvokeEvent
+  event?: Electron.IpcMainInvokeEvent
 ) {
   recordingStore.set(filePath, recording);
   const recordings = recordingStore.get();
@@ -316,6 +333,20 @@ ipcMain.handle("default-log-location", async (_) => {
     "home"
   )}/Library/Logs/Guerrilla Trading Platform/events_log.csv`;
 });
+
+ipcMain.handle(
+  "save-voiceover",
+  async (event, fileName, highlightPath, arrayBuffer, dialogLabel) => {
+    const { filePath } = await dialog.showSaveDialog({
+      buttonLabel: dialogLabel,
+      defaultPath: `${app.getPath("userData")}/${fileName}`,
+    });
+    const buffer = Buffer.from(arrayBuffer);
+    writeFile(filePath, buffer, async () => {
+      mergeVoiceover(filePath, highlightPath);
+    });
+  }
+);
 
 ipcMain.handle(
   "save-video",
@@ -575,6 +606,107 @@ async function split(filePath, segments, outputPath) {
     });
 
   return segmentPaths;
+}
+
+async function mergeVoiceover(filePath: string, highlightPath: string) {
+  if (fs.existsSync(filePath) && fs.existsSync(highlightPath)) {
+    const recording = getRecordings().find(
+      (recording) => recording.highlight?.filePath === highlightPath
+    );
+
+    const outputPath = `${app.getPath("userData")}/recording-${
+      recording.date
+    }-voiceover`;
+
+    saveRecording(recording.filePath, {
+      filePath: recording.filePath,
+      highlightState: recording.highlightState,
+      highlight: recording.highlight,
+      startTime: recording.startTime,
+      duration: recording.duration,
+      date: recording.date,
+      thumbnail: recording.thumbnail,
+      voiceoverState: "Processing",
+      voiceover: {
+        filePath: `${outputPath}.mp4`,
+      },
+    });
+
+    // Merge the audio and video streams
+    console.time("merging");
+    if (fs.existsSync(`${outputPath}.mp4`)) {
+      await fs.promises.unlink(`${outputPath}.mp4`);
+    }
+
+    return await new Promise<void>((resolve, reject) => {
+      const ffmpegArgs = [
+        "-i",
+        filePath,
+        "-i",
+        highlightPath,
+        "-c:v",
+        "copy",
+        "-c:a",
+        "aac",
+        "-strict",
+        "experimental",
+        `${outputPath}.mp4`,
+      ];
+      const ffmpeg = spawn("ffmpeg", ffmpegArgs);
+      ffmpeg.stdout.pipe(process.stdout);
+      ffmpeg.stderr.pipe(process.stderr);
+      ffmpeg.on("error", (error) => {
+        console.log(`Error merging audio: ${error.message}`);
+        reject(error);
+      });
+      process.on("SIGTERM", () => {
+        console.log("Received SIGTERM, terminating ffmpeg process...");
+        ffmpeg.kill("SIGTERM");
+        resolve();
+        process.exit();
+      });
+
+      process.on("SIGINT", () => {
+        console.log("Received SIGINT, terminating ffmpeg process...");
+        ffmpeg.kill("SIGINT");
+        resolve();
+        process.exit();
+      });
+      ffmpeg.on("exit", async (code) => {
+        ffmpeg.kill("SIGTERM");
+        await fs.promises.unlink(filePath);
+        if (code === 0) {
+          console.timeEnd("merging");
+          saveRecording(recording.filePath, {
+            filePath: recording.filePath,
+            highlightState: recording.highlightState,
+            highlight: recording.highlight,
+            startTime: recording.startTime,
+            duration: recording.duration,
+            date: recording.date,
+            thumbnail: recording.thumbnail,
+            voiceoverState: "Completed",
+            voiceover: {
+              filePath: `${outputPath}.mp4`,
+            },
+          });
+          resolve();
+        } else {
+          console.log(`Error merging audio: ffmpeg exited with code ${code}`);
+          saveRecording(recording.filePath, {
+            filePath: recording.filePath,
+            highlightState: recording.highlightState,
+            highlight: recording.highlight,
+            startTime: recording.startTime,
+            duration: recording.duration,
+            date: recording.date,
+            thumbnail: recording.thumbnail,
+          });
+          reject(new Error(`ffmpeg exited with code ${code}`));
+        }
+      });
+    });
+  }
 }
 
 async function splitAndMergeVideo(filePath: string, event: any) {
