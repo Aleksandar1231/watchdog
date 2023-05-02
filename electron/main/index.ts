@@ -721,6 +721,12 @@ async function splitAndMergeVideo(filePath: string, event: any) {
     );
     if (segments.length === 0) return;
 
+    dialog.showMessageBox(win, {
+      type: "info",
+      title: "Notification",
+      message: "Generating Highlights....",
+    });
+
     const outputPath = `${app.getPath("userData")}/recording-${
       recording.date
     }-highlight`;
