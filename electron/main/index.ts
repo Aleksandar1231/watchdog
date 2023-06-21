@@ -72,10 +72,16 @@ const recordingStore = new Store({
 function getConfig() {
   let config = configStore.get("config");
   if (!config) {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    const formattedDate = `${year}-${month}-${day}`;
+
     configStore.set("config", {
       logFilePath: `${app.getPath(
         "home"
-      )}/Library/Logs/Guerrilla Trading Platform/events_log.csv`,
+      )}/Library/Logs/Guerrilla Trading Platform/events_log_${formattedDate}.csv`,
       videoQuality: "Low",
       autoDelete: false,
       preBufferSeconds: "2 seconds",
@@ -860,7 +866,26 @@ async function splitAndMergeVideo(filePath: string, event: any) {
 }
 
 async function filterEventsLog(recording: Recording) {
-  const eventsFile = getConfig()["logFilePath"];
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  const formattedDate = `${year}-${month}-${day}`;
+
+  const eventsFile = `${app.getPath(
+    "home"
+  )}/Library/Logs/Guerrilla Trading Platform/events_log_${formattedDate}.csv`;
+
+  if (!fs.existsSync(eventsFile)) {
+    dialog.showMessageBox(win, {
+      type: "error",
+      title: "Error",
+      message: "Events log file not found",
+    });
+    return;
+  }
+
+  //const eventsFile = getConfig()["logFilePath"];
   const startTime = recording.startTime;
   const endTime = recording.startTime + recording.duration;
   const records = await parseEventLog(eventsFile);
