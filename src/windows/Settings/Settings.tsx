@@ -26,7 +26,7 @@ export function Settings() {
 
   return (
     <div className="container m-8 max-w-full space-y-10">
-      <Connection config={config} />
+      {/* <Connection config={config} /> */}
       <Recording config={config} />
       <Highlights config={config} />
     </div>

@@ -72,16 +72,10 @@ const recordingStore = new Store({
 function getConfig() {
   let config = configStore.get("config");
   if (!config) {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, "0");
-    const day = String(today.getDate()).padStart(2, "0");
-    const formattedDate = `${year}-${month}-${day}`;
-
     configStore.set("config", {
-      logFilePath: `${app.getPath(
-        "home"
-      )}/Library/Logs/Guerrilla Trading Platform/events_log_${formattedDate}.csv`,
+      // logFilePath: `${app.getPath(
+      //   "home"
+      // )}/Library/Logs/Guerrilla Trading Platform/events_log_${formattedDate}.csv`,
       videoQuality: "Low",
       autoDelete: false,
       preBufferSeconds: "2 seconds",
@@ -304,7 +298,7 @@ ipcMain.handle(
   "save-config",
   async (
     event,
-    logFilePath?: string,
+    //logFilePath?: string,
     videoQuality?: VideoQuality,
     autoDelete?: boolean,
     preBufferSeconds?: BufferTime,
@@ -313,7 +307,7 @@ ipcMain.handle(
     const config = saveConfig(
       {
         ...getConfig(),
-        ...(logFilePath && { logFilePath }),
+        //...(logFilePath && { logFilePath }),
         ...(videoQuality && { videoQuality }),
         ...(autoDelete !== undefined && { autoDelete }),
         ...(preBufferSeconds && { preBufferSeconds }),

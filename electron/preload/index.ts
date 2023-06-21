@@ -58,7 +58,7 @@ const main = {
   saveConfig: async (config: Config): Promise<void> => {
     return await ipcRenderer.invoke(
       "save-config",
-      config.logFilePath,
+      //config.logFilePath,
       config.videoQuality,
       config.autoDelete,
       config.preBufferSeconds,

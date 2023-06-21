@@ -15,7 +15,7 @@ export type Voiceover = {
 export type BufferTime = "2 seconds" | "5 seconds" | "10 seconds";
 export type VideoQuality = "Low" | "High";
 export type Config = {
-  logFilePath: string;
+  //logFilePath: string;
   videoQuality: VideoQuality;
   preBufferSeconds: BufferTime;
   postBufferSeconds: BufferTime;
